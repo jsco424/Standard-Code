@@ -1,0 +1,498 @@
+Set session viewshift_enabled=true;
+SET SESSION li_authorization_user = 'insshare';
+
+-- Step 1: Create Enrollments table
+describe u_edu.edu_enrollments_std_march_24;
+drop table if exists u_insshare.{ldap}_enrollments_cliff_main_table_temp;
+create table u_insshare.{ldap}_enrollments_cliff_main_table_temp as
+select distinct
+      enr.education_id
+     ,enr.member_id
+     ,enr.mem_type
+     ,enr.school_name
+     ,enr.school_type
+     ,enr.school_geo
+     ,enr.subvertical
+	 ,enr.organization_id as company_id
+	 ,case
+          when enr.organization_id in (3323650,11248046) then 'Cornell Johnson'
+          when enr.organization_id in (3195) then 'Kellog MBA'
+          when enr.organization_id in (2781064) then 'Kellog Exec Ed'
+          when enr.organization_id in (2891086,3194,15100353) then 'Northwestern Masters'
+          when enr.organization_id in (3196) then 'Northwestern Undergrad'
+          when enr.organization_id in (4867,9220773) then 'Harvard Business School'
+          when enr.organization_id in (1375913) then 'Harvard Exec Ed'
+          when enr.organization_id in (17473) then 'Walden'
+          when enr.organization_id in (100302) then 'Chamberlain'
+          when enr.organization_id in (250372,510837) then 'Ross School of Medicine'
+          when enr.organization_id in (2442373) then 'American U of Caribbean'
+          when enr.organization_id in (14084) then 'WGU'
+          when enr.organization_id in (4734) then 'University of Arizona'
+          when enr.organization_id in (210965) then 'National University'
+          else 'Other'
+      end as school_group
+     ,enr.degree_name as degree_type
+	 ,coalesce(parent_field_of_study, 'Unkown') as parent_field_of_study
+     ,coalesce(enr.Field_of_Study, 'Unkown') as Field_of_Study
+     ,enr.enroll_date as enrolldate
+     ,year(enr.enroll_date) as enrollyear
+     ,month(enr.enroll_date) as enrollmonth
+     ,influenced_student_exposed
+     ,influenced_student_clicked
+     ,influenced_student_lgf_lead
+from  u_edu.edu_enrollments_std_march_24 enr
+      left join u_edu.edu_influenced_student_march_24 inf on enr.member_id=inf.member_id and enr.education_id=inf.education_id
+where enr.organization_id in (3323650,11248046,3195,2781064,2891086,3194,15100353,3196,4867,9220773,1375913,17473,100302,250372,510837,2442373,14084,4734,210965)      
+;
+
+SHOW TABLES FROM hive.u_edu LIKE '%influenced%';
+
+SHOW TABLES FROM openhouse.u_edu LIKE '%influenced_student%';
+
+----quick check to make sure all schools are mapped
+select
+  school_group,
+  count(distinct member_id)
+from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+group by 1
+order by 2 desc;
+
+
+drop table if exists u_insshare.{ldap}_enrollments_cliff_main_table;
+create table u_insshare.{ldap}_enrollments_cliff_main_table as
+select
+      date(enrolldate) as enrolldate
+     ,subvertical
+     ,mem_type
+     ,parent_field_of_study
+     ,field_of_study
+     ,case when degree_type is null then 'other' else lower(degree_type) end as degree_type
+     ,school_name
+     ,school_geo
+     ,coalesce(school_type, 'Other') as school_type
+     ,school_group                -- ✅ ADD THIS
+     ,s.company_id
+     ,cast(count(distinct education_id) as double) as enrollments
+     ,sum(coalesce(influenced_student_exposed,0)) as total_influenced_exposed
+     ,sum(coalesce(influenced_student_clicked,0)) as total_influenced_clicked
+     ,sum(coalesce(influenced_student_lgf_lead,0)) as total_influenced_lgf_lead
+from u_insshare.{ldap}_enrollments_cliff_main_table_temp s
+group by
+      date(enrolldate)
+     ,subvertical
+     ,mem_type
+     ,parent_field_of_study
+     ,field_of_study
+     ,case when degree_type is null then 'other' else lower(degree_type) end
+     ,school_name
+     ,school_geo
+     ,coalesce(school_type, 'Other')
+     ,school_group         
+     ,s.company_id;
+
+---quick check to make sure all schools are then pulled into main table 
+
+select distinct school_group
+from u_insshare.{ldap}_enrollments_cliff_main_table;
+
+-------------------------------------------------
+
+-- Output 0: Overall Platform member growth by year
+
+select 
+  date_trunc('year', date(registration_date)) as year,
+  count(distinct member_id) as mcnt
+from
+  (
+    select  
+      member_id,
+      min(date(from_unixtime(registration_time/1000))) as registration_date
+    from foundation_core_entity_mp.dim_member_all m
+	where country.country_code = 'us'
+    group by 1
+  )
+where date_trunc('year', date(registration_date)) >= date('2019-01-01')
+group by 1
+order by 1;
+  
+--Output 1: Enrollments by year, quarter, and geo
+/* ============================================================
+   ENROLLMENT OUTPUTS (add school_group everywhere)
+   ============================================================ */
+
+-- Output 1: Enrollments by year, quarter, geo (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , date_trunc('quarter', enrolldate) as quarter
+  , school_geo
+  , sum(enrollments) as enrollments
+  , sum(total_influenced_exposed) as influenced_enrollments
+  , sum(total_influenced_clicked) as infleunced_click_enrollments
+  , sum(total_influenced_lgf_lead) as influenced_leads_enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table
+group by 1,2,3,4
+order by 1 asc
+;
+
+
+select
+  school_group,
+  count(*) as rows
+from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+group by 1
+order by 2 desc;
+
+select distinct school_group
+from u_insshare.{ldap}_enrollments_cliff_main_table;
+
+select distinct mem_type from u_insshare.{ldap}_enrollments_cliff_main_table;
+
+-- Output 2: Enrollments by year and degree (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , degree_type
+  , sum(enrollments) as enrollments
+  , sum(total_influenced_exposed) as influenced_enrollments
+  , sum(total_influenced_clicked) as infleunced_click_enrollments
+  , sum(total_influenced_lgf_lead) as influenced_leads_enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table
+where school_geo = 'us'
+group by 1,2,3
+order by 1 asc
+;
+
+-- Output 3: Enrollments by year and Parent FoS (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , parent_field_of_study
+  , sum(enrollments) as enrollments
+  , sum(total_influenced_exposed) as influenced_enrollments
+  , sum(total_influenced_clicked) as infleunced_click_enrollments
+  , sum(total_influenced_lgf_lead) as influenced_leads_enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table
+where school_geo = 'us'
+group by 1,2,3
+order by 1 asc
+;
+
+-- Output 4: Enrollments by year and FoS (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , field_of_study
+  , sum(enrollments) as enrollments
+  , sum(total_influenced_exposed) as influenced_enrollments
+  , sum(total_influenced_clicked) as infleunced_click_enrollments
+  , sum(total_influenced_lgf_lead) as influenced_leads_enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table
+where school_geo = 'us'
+group by 1,2,3
+order by 1 asc
+;
+
+
+/* ============================================================
+   AGE BREAKS (carry school_group through age temp + outputs)
+   NOTE: pulls school_group from {ldap}_enrollments_cliff_main_table_temp
+   ============================================================ */
+
+drop table if exists u_insshare.{ldap}_enrollments_cliff_age_brackets_temp;
+create table u_insshare.{ldap}_enrollments_cliff_age_brackets_temp as
+select
+  case
+    when year(current_date) - yearborn between 18 and 24 then '18 - 24'
+    when year(current_date) - yearborn between 25 and 34 then '25 - 34'
+    when year(current_date) - yearborn between 35 and 54 then '35 - 54'
+    when year(current_date) - yearborn >= 55 then '55+'
+  end as cmt_age_bucket
+, geostddata.countrycode
+, memberid
+from data_derived.standardization_member_yearborn
+where yearborn is not null
+  and year(current_date) - yearborn >= 18
+;
+
+drop table if exists u_insshare.{ldap}_enrollments_cliff_main_table_age_temp;
+create table u_insshare.{ldap}_enrollments_cliff_main_table_age_temp as
+select distinct
+      enr.education_id
+    , enr.member_id
+    , enr.mem_type
+    , age.cmt_age_bucket
+    , enr.school_name
+    , enr.education_type as school_type
+    , enr.school_geo
+    , enr.subvertical
+    , enr.organization_id as company_id
+    , co.school_group
+    , enr.degree_name as degree_type
+    , coalesce(parent_field_of_study, 'Unknown') as parent_field_of_study
+    , coalesce(enr.field_of_study, 'Unknown') as field_of_study
+    , enr.enroll_date as enrolldate
+    , year(enr.enroll_date) as enrollyear
+    , month(enr.enroll_date) as enrollmonth
+from u_edu.edu_enrollments_std enr
+join u_insshare.{ldap}_enrollments_cliff_age_brackets_temp age
+  on enr.member_id = age.memberid
+join u_insshare.{ldap}_enrollments_cliff_main_table_temp co
+  on  co.member_id = enr.member_id
+  and co.education_id = enr.education_id
+;
+
+drop table if exists u_insshare.{ldap}_enrollments_cliff_main_table_age;
+create table u_insshare.{ldap}_enrollments_cliff_main_table_age as
+select
+      date(enrolldate) as enrolldate
+    , subvertical
+    , mem_type
+    , cmt_age_bucket
+    , parent_field_of_study
+    , field_of_study
+    , case when degree_type is null then 'Other' else lower(degree_type) end as degree_type
+    , school_name
+    , school_geo
+    , coalesce(school_type, 'Other') as school_type
+    , school_group
+    , s.company_id
+    , cast(count(distinct education_id) as double) as enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table_age_temp s
+where school_geo = 'us'
+group by 1,2,3,4,5,6,7,8,9,10,11,12
+order by 1,2,3,4,5,6,7,8,9,10,11,12 asc
+;
+
+-- Output 1a: Enrollments by year, quarter, age (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , date_trunc('quarter', enrolldate) as quarter
+  , cmt_age_bucket
+  , sum(enrollments) as enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table_age
+group by 1,2,3,4
+order by 1 asc
+;
+
+-- Output 2a: Enrollments by year, age, degree (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , cmt_age_bucket
+  , degree_type
+  , sum(enrollments) as enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table_age
+group by 1,2,3,4
+order by 1 asc
+;
+
+-- Output 3a: Enrollments by year, age, Parent FoS (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , cmt_age_bucket
+  , parent_field_of_study
+  , sum(enrollments) as enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table_age
+group by 1,2,3,4
+order by 1 asc
+;
+
+-- Output 4a: Enrollments by year, age, FoS (+ school_group)
+select 
+    date_trunc('year', enrolldate) as year
+  , school_group
+  , cmt_age_bucket
+  , field_of_study
+  , sum(enrollments) as enrollments
+from u_insshare.{ldap}_enrollments_cliff_main_table_age
+group by 1,2,3,4
+order by 1 asc
+;
+
+
+/* ============================================================
+   REGISTRATION (by age bucket) + school_group
+   NOTE: assigns each member to ONE school_group (earliest enrolldate)
+   ============================================================ */
+
+with member_primary_school as (
+  select member_id, school_group
+  from (
+    select
+        member_id
+      , school_group
+      , enrolldate
+      , row_number() over (partition by member_id order by enrolldate asc) as rn
+    from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+  )
+  where rn = 1
+)
+select 
+    date_trunc('year', date(registration_date)) as year
+  , s.school_group
+  , cmt_age_bucket
+  , count(distinct member_id) as mcnt
+from (
+    select  
+        m.member_id
+      , a.cmt_age_bucket
+      , min(date(from_unixtime(registration_time/1000))) as registration_date
+    from foundation_core_entity_mp.dim_member_all m
+    join u_insshare.{ldap}_enrollments_cliff_age_brackets_temp a
+      on a.memberid = m.member_id
+    where country.country_code = 'us'
+    group by 1,2
+) r
+join member_primary_school s
+  on s.member_id = r.member_id
+where date_trunc('year', date(registration_date)) >= date('2019-01-01')
+group by 1,2,3
+order by 1,2,3
+;
+
+
+/* ============================================================
+   LINKEDIN LEARNING TABLES + school_group
+   ============================================================ */
+
+drop table if exists u_insshare.{ldap}_enrollments_cliff_LinkedIn_Learning;
+create table if not exists u_insshare.{ldap}_enrollments_cliff_LinkedIn_Learning as
+with member_primary_school as (
+  select member_id, school_group
+  from (
+    select member_id, school_group, enrolldate,
+           row_number() over (partition by member_id order by enrolldate asc) rn
+    from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+  )
+  where rn = 1
+)
+select 
+    course_title
+  , audience.cmt_age_bucket
+  , s.school_group
+  , cast(count(distinct case
+        when partition_date(lsv.datepartition) between date('{start_date_prev}') and date('{end_date_prev}')
+        then lsv.learner_urn end) as double) as learners_prev
+  , cast(count(distinct case
+        when partition_date(lsv.datepartition) between date('{start_date_curr}') and date('{end_date_curr}')
+        then lsv.learner_urn end) as double) as learners_current
+from u_metrics.learning_session_video_union lsv
+join u_metrics.dim_lynda_video v on v.video_id = lsv.video_id
+join u_metrics.dim_lynda_course c on c.course_id = v.course_id
+join u_insshare.{ldap}_enrollments_cliff_age_brackets_temp audience on lsv.member_id = audience.memberid
+join foundation_core_entity_mp.dim_member_all m on audience.memberid = m.member_id
+join member_primary_school s on s.member_id = m.member_id
+where true 
+  and country.country_code = 'us'
+  and app = 'Learning App' 
+  and lsv.member_id > 0
+group by 1,2,3
+order by 2 desc
+;
+
+drop table if exists u_insshare.{ldap}_enrollments_cliff_LinkedIn_Learning_WoW;
+create table if not exists u_insshare.{ldap}_enrollments_cliff_LinkedIn_Learning_WoW as
+with member_primary_school as (
+  select member_id, school_group
+  from (
+    select member_id, school_group, enrolldate,
+           row_number() over (partition by member_id order by enrolldate asc) rn
+    from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+  )
+  where rn = 1
+)
+select
+    date_trunc('month', partition_date(datepartition)) as usage_month
+  , audience.cmt_age_bucket
+  , s.school_group
+  , approx_distinct(learner_urn) as learners
+from u_metrics.learning_session_video_union lsv
+inner join u_insshare.{ldap}_enrollments_cliff_age_brackets_temp audience on lsv.member_id = audience.memberid
+inner join foundation_core_entity_mp.dim_member_all m on audience.memberid = m.member_id
+inner join member_primary_school s on s.member_id = m.member_id
+where partition_date(datepartition) >= date_add('month', -24, date_trunc('month', current_date)) 
+  and app = 'Learning App'
+  and country.country_code = 'us'
+group by 1,2,3
+;
+
+-- Output 5: Top LinkedIn Learning courses by Age group (+ school_group is now in table)
+select *
+from u_insshare.{ldap}_enrollments_cliff_LinkedIn_Learning
+where learners_prev >= 100 and learners_current >= 100
+;
+
+-- Output 6: Top LinkedIn Learning sessions by week and Age group (+ school_group is now in table)
+select *
+from u_insshare.{ldap}_enrollments_cliff_LinkedIn_Learning_WoW
+;
+
+
+/* ============================================================
+   CERTS + school_group
+   ============================================================ */
+
+with member_primary_school as (
+  select member_id, school_group
+  from (
+    select member_id, school_group, enrolldate,
+           row_number() over (partition by member_id order by enrolldate asc) rn
+    from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+  )
+  where rn = 1
+)
+SELECT 
+    ctf.authority
+  , ctf.name
+  , audience.cmt_age_bucket
+  , s.school_group
+  , COUNT(DISTINCT CASE WHEN ctf.start_year = 2023 THEN c.member_id END) AS num_members_2023
+  , COUNT(DISTINCT CASE WHEN ctf.start_year = 2024 THEN c.member_id END) AS num_members_2024
+  , (CASE
+        WHEN COUNT(DISTINCT CASE WHEN ctf.start_year = 2023 THEN c.member_id END) = 0
+        THEN NULL
+        ELSE (COUNT(DISTINCT CASE WHEN ctf.start_year = 2024 THEN c.member_id END) * 1.0
+              / COUNT(DISTINCT CASE WHEN ctf.start_year = 2023 THEN c.member_id END))
+     END) AS diff_perc
+FROM foundation_core_entity_mp.dim_member_all c
+inner join u_insshare.{ldap}_enrollments_cliff_age_brackets_temp audience on c.member_id = audience.memberid
+inner join member_primary_school s on s.member_id = c.member_id
+CROSS JOIN UNNEST(c.certifications) AS t(ctf)
+WHERE ctf.start_year IS NOT NULL
+  and country.country_code = 'us'
+GROUP BY 1,2,3,4
+HAVING COUNT(DISTINCT CASE WHEN ctf.start_year = 2023 THEN c.member_id END) >= 100
+   AND COUNT(DISTINCT CASE WHEN ctf.start_year = 2024 THEN c.member_id END) >= 100
+ORDER BY diff_perc DESC
+;
+
+with member_primary_school as (
+  select member_id, school_group
+  from (
+    select member_id, school_group, enrolldate,
+           row_number() over (partition by member_id order by enrolldate asc) rn
+    from u_insshare.{ldap}_enrollments_cliff_main_table_temp
+  )
+  where rn = 1
+)
+select
+    ctf.start_year
+  , audience.cmt_age_bucket
+  , s.school_group
+  , count(distinct ctf.id) as num_certs
+from foundation_core_entity_mp.dim_member_all c
+inner join u_insshare.{ldap}_enrollments_cliff_age_brackets_temp audience on c.member_id = audience.memberid
+inner join member_primary_school s on s.member_id = c.member_id
+cross join unnest(c.certifications) as t(ctf)
+where country.country_code = 'us'
+  and ctf.start_year >= 2019
+group by 1,2,3
+;
+
+
+--CLEANUP
+drop table if exists u_insshare.{ldap}_enrollments_cliff_main_table_age_temp;
+drop table if exists u_insshare.{ldap}_enrollments_cliff_main_table_temp;
