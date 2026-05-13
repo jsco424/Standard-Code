@@ -1,0 +1,1401 @@
+set session li_authorization_user='insshare';
+
+set session viewshift_enabled = true;--check activated
+show session like 'viewshift_enabled';
+--------------------------------------------------------------------------
+-- Project Name: APAC Country Stat Pack
+-- Analysis Name: Product Insights
+-- Serial Number: Script 17 of 17
+-- Customized Date: 1-August-2022
+-- Created By: LMS Insights, APAC
+-- Authors: Anshit Shukla, Vignesh R
+-- Last Update: 1-August-2022
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+-- Project Name: APAC Country Stat Pack
+-- Analysis Name: Product Insights
+-- Serial Number: Script 8 of 8
+-- Created By: LMS Insights, APAC
+-- Authors: Anshit Shukla
+-- Last Update: 1-August-2022
+--Type: Base Audience Creation for the creating entire deck (Not specific to a Slide)
+--------------------------------------------------------------------------
+describe u_gsoins.lms_core_audience_array_union;
+select distinct country_code from u_gsoins.lms_core_audience_array_union where 1=1 and continent_id in (103537801,100506852);
+------------------------------------------------------------------------
+-- 1. Build Base audience population table
+------------------------------------------------------------------------
+--00
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw};
+
+--01
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw} AS
+SELECT
+    CAST(member_id AS BIGINT) AS member_id
+FROM u_gsoins.lms_core_audience_array_union
+WHERE country_code IN (
+    'ao','ar','au','at','be','bf','bi','bj','bw','cd','cf','cg','ch','ci','cl','cm','cv',
+    'de','dj','dz','eg','er','es','et','ga','ge','gh','gm','gn','gq','gw',
+    'it','ke','km','lr','ls','ly','ma','mg','ml','mr','mw','mz','na','ne','nf',
+    'ng','nl','pg','ru','rw','sc','sd','sl','sn','so','ss','st','sz','td','tg',
+    'tn','tr','tz','ug','yt','za','zm','zw'
+)
+;
+
+------------------------------------------------------------------------
+-- 2. Build Samples out of the above built audience table (Target)
+------------------------------------------------------------------------
+--02
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_sample_${country_table | type:raw};
+
+--03
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_sample_${country_table | type:raw} AS
+SELECT member_id
+FROM
+(
+    SELECT member_id, ROW_NUMBER() OVER (ORDER BY rnd) AS rnk
+    FROM (SELECT member_id, RANDOM() AS rnd FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+) WHERE rnk <= 1000000;
+
+
+------------------------------------------------------------------------
+-- 3. Build Baseline Audience outside the base audience
+------------------------------------------------------------------------
+--04  
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_population_${country_table | type:raw};
+
+--05
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_population_${country_table | type:raw} AS
+SELECT
+    CAST(member_id AS BIGINT) AS member_id
+FROM u_gsoins.lms_core_audience_array_union
+WHERE country_code NOT IN (
+    'ao','ar','au','at','be','bf','bi','bj','bw','cd','cf','cg','ch','ci','cl','cm','cv',
+    'de','dj','dz','eg','er','es','et','ga','ge','gh','gm','gn','gq','gw',
+    'it','ke','km','lr','ls','ly','ma','mg','ml','mr','mw','mz','na','ne','nf',
+    'ng','nl','pg','ru','rw','sc','sd','sl','sn','so','ss','st','sz','td','tg',
+    'tn','tr','tz','ug','yt','za','zm','zw')
+;
+
+
+------------------------------------------------------------------------
+-- 4. Build Samples out of the above built audience table (Baseline)
+------------------------------------------------------------------------
+--06
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_sample_${country_table | type:raw};
+
+--07
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_sample_${country_table | type:raw} AS
+SELECT member_id
+FROM
+(
+    SELECT member_id, ROW_NUMBER() OVER (ORDER BY rnd) AS rnk
+    FROM (SELECT member_id, RANDOM() AS rnd FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_population_${country_table | type:raw})
+) WHERE rnk <= 1000000;
+
+
+
+--------------------------------------------------------------------------
+-- LMS Country Stat Pack - Scaled Project
+--------------------------------------------------------------------------
+--On-platform engagements
+--00
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.ee_campaigns_engaging_target_population;
+
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.ee_campaigns_engaging_target_population AS
+SELECT  advertiserid AS engaging_account_id,
+        campaignid AS engaging_campaign_id
+FROM tracking_column.adclickevent
+WHERE TRUE
+AND status = 1
+AND clicktype IN (1,2)
+AND datepartition BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-366,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND header__memberid IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_sample_${country_table | type:raw})
+AND header__memberid > 0
+GROUP BY 1,2;
+
+--Sponsored Contents - Data aggregate
+--02
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sc_agg_target;
+
+--03
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sc_agg_target AS
+SELECT  update_id,
+        advertiser_id,
+        campaign_id,
+        objective_type,
+        campaigntype,
+        campaign_type_int,
+        update_type,
+        campaign_cost_type,
+        ad_format_type,
+        product_type,
+        publisher,
+        SUBSTR(datepartition,1,7) AS yr_mon,
+        SUM(revenue) AS revenue,
+        SUM(impressions) AS impressions,
+        SUM(clicks) AS clicks,
+        SUM(totalengagements) AS totalengagements,
+        SUM(videoviews) AS videoviews,
+        SUM(videoq25completions) AS videoq25completions,
+        SUM(videoq75completions) AS videoq75completions,
+        SUM(videocompletions) AS videocompletions,
+        SUM(cardimpressions) AS cardimpressions,
+        SUM(cardclicks) AS cardclicks,
+        0 AS form_views,
+        0 AS leads,
+        0 AS total_conversions,
+        0 AS pv_conversions,
+        0 AS pc_conversions,
+        0 AS opens
+FROM
+    u_metrics.lms_baseline_monthly_sc_union A
+  INNER JOIN
+    u_${your ldap|help:ex: anshukla|type:raw}.ee_campaigns_engaging_target_population B
+  ON A.advertiser_id = B.engaging_account_id AND A.campaign_id = B.engaging_campaign_id
+WHERE TRUE
+AND datepartition BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-366,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND product_type <> 'TALENT_SOLUTIONS'
+AND impressions > 5000
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12;
+
+--In-Mail - Data aggregate
+--04
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.im_agg_target;
+
+--05
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.im_agg_target AS
+SELECT  0 AS update_id,
+        advertiser_id,
+        campaign_id,
+        objective_type,
+        campaigntype,
+        campaign_type_int,
+        'NULL' AS update_type,
+        campaign_cost_type,
+        ad_format_type,
+        product_type,
+        publisher,
+        SUBSTR(datepartition,1,7) AS yr_mon,
+        SUM(revenue) AS revenue,
+        SUM(impressions) AS impressions,
+        SUM(clicks) AS clicks,
+        SUM(totalengagements) AS totalengagements,
+        SUM(opens) AS opens,
+        0 AS form_views,
+        0 AS leads,
+        0 AS total_conversions,
+        0 AS pv_conversions,
+        0 AS pc_conversions,
+        0 AS videoviews,
+        0 AS videoq25completions,
+        0 AS videoq75completions,
+        0 AS videocompletions,
+        0 AS cardimpressions,
+        0 AS cardclicks
+FROM
+    u_metrics.lms_baseline_monthly_inmail_union A
+  INNER JOIN
+    u_${your ldap|help:ex: anshukla|type:raw}.ee_campaigns_engaging_target_population B
+  ON A.advertiser_id = B.engaging_account_id AND A.campaign_id = B.engaging_campaign_id
+WHERE TRUE
+AND datepartition BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-366,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND product_type <> 'TALENT_SOLUTIONS'
+AND impressions > 5000
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,18,19,20,21,22,23,24,25,26,27,28;
+
+--Lead Generation - Data aggregate
+--06
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.lg_agg_target;
+
+--07
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.lg_agg_target AS
+SELECT  update_id,
+        advertiser_id,
+        campaign_id,
+        objective_type,
+        campaigntype,
+        campaign_type_int,
+        update_type,
+        campaign_cost_type,
+        ad_format_type,
+        product_type,
+        publisher,
+        SUBSTR(datepartition,1,7) AS yr_mon,
+        SUM(revenue) AS revenue,
+        SUM(impressions) AS impressions,
+        SUM(clicks) AS clicks,
+        SUM(totalengagements) AS totalengagements,
+        0 AS opens,
+        SUM(form_views) AS form_views,
+        SUM(leads) AS leads,
+        0 AS total_conversions,
+        0 AS pv_conversions,
+        0 AS pc_conversions,
+        0 AS videoviews,
+        0 AS videoq25completions,
+        0 AS videoq75completions,
+        0 AS videocompletions,
+        0 AS cardimpressions,
+        0 AS cardclicks
+FROM
+    u_metrics.lms_baseline_monthly_lg_union A
+  INNER JOIN
+    u_${your ldap|help:ex: anshukla|type:raw}.ee_campaigns_engaging_target_population B
+  ON A.advertiser_id = B.engaging_account_id AND A.campaign_id = B.engaging_campaign_id
+WHERE TRUE
+AND datepartition BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-366,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND product_type <> 'TALENT_SOLUTIONS'
+-- AND impressions > 5000
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,17,20,21,22,23,24,25,26,27,28;
+
+--Combine All data as required
+--08
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.oba_product_base_data;
+
+--09
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.oba_product_base_data AS
+SELECT * FROM
+(
+  SELECT  update_id,
+          campaign_id,
+          campaign_type_int,
+          (CASE
+            WHEN objective_type = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+            WHEN objective_type = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'VIDEO_VIEW' THEN 'AWARENESS (BRANDING)'
+            WHEN objective_type = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'LEAD_GENERATION' THEN 'CONVERSION'
+            WHEN objective_type = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+            WHEN objective_type = 'JOB_APPLICANT' THEN 'CONVERSION'
+            ELSE objective_type
+          END) AS funnel_type,
+          objective_type,
+          (CASE
+            WHEN ad_format_type = 'SPONSORED_STATUS_UPDATE' THEN 'STATUS_UPDATE'
+            WHEN ad_format_type = 'SPONSORED_UPDATE_CAROUSEL' THEN 'CAROUSEL'
+            WHEN ad_format_type = 'SPONSORED_VIDEO' THEN 'VIDEO'
+            WHEN ad_format_type LIKE '%JOB%' THEN 'JOBS'
+            WHEN ad_format_type = 'SPONSORED_INMAILS' THEN 'INMAIL'
+            WHEN ad_format_type = 'SPONSORED_MESSAGE' THEN 'INMAIL'
+            WHEN ad_format_type LIKE '%WHITEPAPER%' THEN 'WHITEPAPER'
+            WHEN ad_format_type = 'TEXT_AD' THEN 'TEXT_AD'
+            WHEN ad_format_type LIKE '%SPOTLIGHT%' THEN 'SPOTLIGHT_DYNAMIC_AD'
+            WHEN ad_format_type LIKE '%FOLLOW_COMPANY%' THEN 'FOLLOW_COMPANY_DYNAMIC_AD'
+            ELSE ad_format_type
+          END) AS ad_format_type,
+          update_type,
+          campaign_cost_type,
+          publisher,
+          yr_mon,
+          SUM(revenue) AS revenue,
+          SUM(impressions) AS impressions,
+          SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(opens) AS opens,
+          SUM(form_views) AS form_views,
+          SUM(leads) AS leads,
+          SUM(total_conversions) AS total_conversions,
+          SUM(pv_conversions) AS pv_conversions,
+          SUM(pc_conversions) AS pc_conversions,
+          SUM(videoviews) AS videoviews,
+          SUM(videoq25completions) AS videoq25completions,
+          SUM(videoq75completions) AS videoq75completions,
+          SUM(videocompletions) AS videocompletions,
+          SUM(cardimpressions) AS cardimpressions,
+          SUM(cardclicks) AS cardclicks
+  FROM u_${your ldap|help:ex: anshukla|type:raw}.sc_agg_target
+  WHERE objective_type <> 'UNKNOWN'
+  GROUP BY 1,2,3,4,5,6,7,8,9,10
+)
+UNION
+(
+  SELECT  update_id,
+          campaign_id,
+          campaign_type_int,
+          (CASE
+            WHEN objective_type = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+            WHEN objective_type = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'VIDEO_VIEW' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'LEAD_GENERATION' THEN 'CONVERSION'
+            WHEN objective_type = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+            WHEN objective_type = 'JOB_APPLICANT' THEN 'CONVERSION'
+            ELSE objective_type
+          END) AS funnel_type,
+          objective_type,
+          (CASE
+            WHEN ad_format_type = 'SPONSORED_STATUS_UPDATE' THEN 'STATUS_UPDATE'
+            WHEN ad_format_type = 'SPONSORED_UPDATE_CAROUSEL' THEN 'CAROUSEL'
+            WHEN ad_format_type = 'SPONSORED_VIDEO' THEN 'VIDEO'
+            WHEN ad_format_type LIKE '%JOB%' THEN 'JOBS'
+            WHEN ad_format_type = 'SPONSORED_INMAILS' THEN 'INMAIL'
+            WHEN ad_format_type = 'SPONSORED_MESSAGE' THEN 'INMAIL'
+            WHEN ad_format_type LIKE '%WHITEPAPER%' THEN 'WHITEPAPER'
+            WHEN ad_format_type = 'TEXT_AD' THEN 'TEXT_AD'
+            WHEN ad_format_type LIKE '%SPOTLIGHT%' THEN 'SPOTLIGHT_DYNAMIC_AD'
+            WHEN ad_format_type LIKE '%FOLLOW_COMPANY%' THEN 'FOLLOW_COMPANY_DYNAMIC_AD'
+            ELSE ad_format_type
+          END) AS ad_format_type,
+          update_type,
+          campaign_cost_type,
+          publisher,
+          yr_mon,
+          SUM(revenue) AS revenue,
+          SUM(impressions) AS impressions,
+          SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(opens) AS opens,
+          SUM(form_views) AS form_views,
+          SUM(leads) AS leads,
+          SUM(total_conversions) AS total_conversions,
+          SUM(pv_conversions) AS pv_conversions,
+          SUM(pc_conversions) AS pc_conversions,
+          SUM(videoviews) AS videoviews,
+          SUM(videoq25completions) AS videoq25completions,
+          SUM(videoq75completions) AS videoq75completions,
+          SUM(videocompletions) AS videocompletions,
+          SUM(cardimpressions) AS cardimpressions,
+          SUM(cardclicks) AS cardclicks
+  FROM u_${your ldap|help:ex: anshukla|type:raw}.im_agg_target
+  WHERE objective_type <> 'UNKNOWN'
+  GROUP BY 1,2,3,4,5,6,7,8,9,10
+)
+UNION
+(
+  SELECT  update_id,
+          campaign_id,
+          campaign_type_int,
+          (CASE
+            WHEN objective_type = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+            WHEN objective_type = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'VIDEO_VIEW' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'LEAD_GENERATION' THEN 'CONVERSION'
+            WHEN objective_type = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+            WHEN objective_type = 'JOB_APPLICANT' THEN 'CONVERSION'
+            ELSE objective_type
+          END) AS funnel_type,
+          objective_type,
+          (CASE
+            WHEN ad_format_type = 'SPONSORED_STATUS_UPDATE' THEN 'STATUS_UPDATE'
+            WHEN ad_format_type = 'SPONSORED_UPDATE_CAROUSEL' THEN 'CAROUSEL'
+            WHEN ad_format_type = 'SPONSORED_VIDEO' THEN 'VIDEO'
+            WHEN ad_format_type LIKE '%JOB%' THEN 'JOBS'
+            WHEN ad_format_type = 'SPONSORED_INMAILS' THEN 'INMAIL'
+            WHEN ad_format_type = 'SPONSORED_MESSAGE' THEN 'INMAIL'
+            WHEN ad_format_type LIKE '%WHITEPAPER%' THEN 'WHITEPAPER'
+            WHEN ad_format_type = 'TEXT_AD' THEN 'TEXT_AD'
+            WHEN ad_format_type LIKE '%SPOTLIGHT%' THEN 'SPOTLIGHT_DYNAMIC_AD'
+            WHEN ad_format_type LIKE '%FOLLOW_COMPANY%' THEN 'FOLLOW_COMPANY_DYNAMIC_AD'
+            ELSE ad_format_type
+          END) AS ad_format_type,
+          update_type,
+          campaign_cost_type,
+          publisher,
+          yr_mon,
+          SUM(revenue) AS revenue,
+          SUM(impressions) AS impressions,
+          SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(opens) AS opens,
+          SUM(form_views) AS form_views,
+          SUM(leads) AS leads,
+          SUM(total_conversions) AS total_conversions,
+          SUM(pv_conversions) AS pv_conversions,
+          SUM(pc_conversions) AS pc_conversions,
+          SUM(videoviews) AS videoviews,
+          SUM(videoq25completions) AS videoq25completions,
+          SUM(videoq75completions) AS videoq75completions,
+          SUM(videocompletions) AS videocompletions,
+          SUM(cardimpressions) AS cardimpressions,
+          SUM(cardclicks) AS cardclicks
+  FROM u_${your ldap|help:ex: anshukla|type:raw}.lg_agg_target
+  WHERE objective_type <> 'UNKNOWN'
+  GROUP BY 1,2,3,4,5,6,7,8,9,10
+);
+
+--10
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.oba_product_master_data;
+
+--11
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.oba_product_master_data AS
+SELECT  update_id,
+        campaign_id,
+        campaign_type_int,
+        funnel_type,
+        objective_type,
+        ad_format_type AS product_type,
+        update_type,
+        campaign_cost_type,
+        publisher,
+        yr_mon,
+        MAX(revenue) AS revenue,
+        MAX(impressions) AS impressions,
+        MAX(clicks) AS clicks,
+        MAX(totalengagements) AS totalengagements,
+        MAX(opens) AS opens,
+        MAX(form_views) AS form_views,
+        MAX(leads) AS leads,
+        MAX(total_conversions) AS total_conversions,
+        MAX(pv_conversions) AS pv_conversions,
+        MAX(pc_conversions) AS pc_conversions,
+        MAX(videoviews) AS videoviews,
+        MAX(videoq25completions) AS videoq25completions,
+        MAX(videoq75completions) AS videoq75completions,
+        MAX(videocompletions) AS videocompletions,
+        MAX(cardimpressions) AS cardimpressions,
+        MAX(cardclicks) AS cardclicks
+FROM u_${your ldap|help:ex: anshukla|type:raw}.oba_product_base_data
+GROUP BY 1,2,3,4,5,6,7,8,9,10;
+
+
+--------------------------------------------------------------------------------
+-- 5. Product-Funnel Optimization (Base Data for Country Pack Slide #44, #45, #46)
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- 5 A. Build Base Data
+--------------------------------------------------------------------------------
+
+--12 On-Platform Engagements
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.engaging_campaigns;
+
+--13
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.engaging_campaigns AS
+SELECT  
+    campaignid AS campaign_id
+FROM tracking_column.adclickevent
+WHERE TRUE
+AND clicktype IN (1,2)
+--paid (valid) & viral (unchargeable + viral with no invalid sequence error)
+AND (status = 1 OR (status = 4 AND contains(map_keys(validationfailures),'11') = True
+                               AND contains(map_keys(validationfailures),'15') = False))
+AND DATE(SUBSTR(datepartition,1,10)) BETWEEN -- last 1 year
+    DATE_ADD('month',-12,DATE_TRUNC('month',current_date)) AND LAST_DAY_OF_MONTH(DATE_ADD('month', -1, current_date))
+AND header__memberid > 0
+AND header__memberid IN
+  (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${region|type:raw})
+GROUP BY 1;
+
+--14
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.funnel_product_base;
+
+--15
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.funnel_product_base AS
+WITH sc_agg AS -- Aggregated Data: Sponsored Content
+(
+  SELECT  -- update_id,
+          campaign_id,
+          -- SUBSTR(datepartition,1,7) AS yr_mon,
+          objective_type, -- funnel_type
+          ad_format_type, -- product_type
+          -- campaign_type_int,
+          SUM(impressions) AS impressions,
+          -- SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(videoviews) AS videoviews,
+          SUM(cardimpressions) AS cardimpressions,
+          SUM(cardclicks) AS cardclicks,
+          SUM(0) AS opens,
+          SUM(0) AS form_views,
+          SUM(0) AS leads
+          -- SUM(revenue) AS revenue
+  FROM u_metrics.lms_baseline_monthly_sc_union sc
+    INNER JOIN u_${your ldap|help:ex: anshukla|type:raw}.engaging_campaigns cmp USING (campaign_id)
+  WHERE TRUE
+  AND DATE(SUBSTR(datepartition,1,10)) BETWEEN
+      DATE_ADD('month',-12,DATE_TRUNC('month',current_date)) AND LAST_DAY_OF_MONTH(DATE_ADD('month', -1, current_date))
+  AND product_type <> 'TALENT_SOLUTIONS'
+  AND (objective_type IS NOT NULL AND objective_type <> 'UNKNOWN' AND objective_type <> 'TALENT_LEAD')
+  GROUP BY 1,2,3
+  HAVING SUM(impressions) > 5000
+),
+
+im_agg AS -- Aggregated Data: InMail
+(
+  SELECT  -- update_id,
+          campaign_id,
+          -- SUBSTR(datepartition,1,7) AS yr_mon,
+          objective_type, -- funnel_type
+          ad_format_type, -- product_type
+          -- campaign_type_int,
+          SUM(impressions) AS impressions,
+          -- SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(0) AS videoviews,
+          SUM(0) AS cardimpressions,
+          SUM(0) AS cardclicks,
+          SUM(opens) AS opens,
+          SUM(0) AS form_views,
+          SUM(0) AS leads
+          -- SUM(revenue) AS revenue
+  FROM u_metrics.lms_baseline_monthly_inmail_union im
+    INNER JOIN u_${your ldap|help:ex: anshukla|type:raw}.engaging_campaigns cmp USING (campaign_id)
+  WHERE TRUE
+  AND DATE(SUBSTR(datepartition,1,10)) BETWEEN
+      DATE_ADD('month',-12,DATE_TRUNC('month',current_date)) AND LAST_DAY_OF_MONTH(DATE_ADD('month', -1, current_date))
+  AND product_type <> 'TALENT_SOLUTIONS'
+  AND (objective_type IS NOT NULL AND objective_type <> 'UNKNOWN' AND objective_type <> 'TALENT_LEAD')
+  GROUP BY 1,2,3
+  HAVING SUM(impressions) > 5000
+),
+
+lg_agg AS -- Aggregated Data: Lead Generation
+(
+  SELECT  -- update_id,
+          campaign_id,
+          -- SUBSTR(datepartition,1,7) AS yr_mon,
+          objective_type, -- funnel_type
+          ad_format_type, -- product_type
+          -- campaign_type_int,
+          SUM(impressions) AS impressions,
+          -- SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(0) AS videoviews,
+          SUM(0) AS cardimpressions,
+          SUM(0) AS cardclicks,
+          SUM(0) AS opens,
+          SUM(form_views) AS form_views,
+          SUM(leads) AS leads
+          -- SUM(revenue) AS revenue
+  FROM u_metrics.lms_baseline_monthly_lg_union lg
+    INNER JOIN u_${your ldap|help:ex: anshukla|type:raw}.engaging_campaigns cmp USING (campaign_id)
+  WHERE TRUE
+  AND DATE(SUBSTR(datepartition,1,10)) BETWEEN
+      DATE_ADD('month',-12,DATE_TRUNC('month',current_date)) AND LAST_DAY_OF_MONTH(DATE_ADD('month', -1, current_date))
+  AND product_type <> 'TALENT_SOLUTIONS'
+  AND (objective_type IS NOT NULL AND objective_type <> 'UNKNOWN' AND objective_type <> 'TALENT_LEAD')
+  GROUP BY 1,2,3
+  -- HAVING SUM(impressions) > 5000
+  HAVING SUM(form_views) > 100
+)
+
+SELECT * FROM
+(
+ SELECT * FROM sc_agg
+ UNION ALL
+ SELECT * FROM im_agg
+ UNION ALL
+ SELECT * FROM lg_agg
+);
+
+--------------------------------------------------------------------------------
+-- 5 B. Results for Country Pack Slide #44, #45, #46)
+--------------------------------------------------------------------------------
+
+--16
+WITH funnel_product_master AS
+(
+  SELECT  (CASE
+            WHEN objective_type = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+            WHEN objective_type = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'VIDEO_VIEW' THEN 'AWARENESS (BRANDING)'
+            WHEN objective_type = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+            WHEN objective_type = 'LEAD_GENERATION' THEN 'CONVERSION'
+            WHEN objective_type = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+            WHEN objective_type = 'JOB_APPLICANT' THEN 'CONVERSION'
+            ELSE objective_type
+          END) AS funnel_type,
+          (CASE
+            WHEN ad_format_type = 'SPONSORED_STATUS_UPDATE' THEN 'STATUS_UPDATE'
+            WHEN ad_format_type = 'SPONSORED_UPDATE_CAROUSEL' THEN 'CAROUSEL'
+            WHEN ad_format_type = 'SPONSORED_VIDEO' THEN 'VIDEO'
+            WHEN ad_format_type LIKE '%JOB%' THEN 'JOBS'
+            WHEN ad_format_type = 'SPONSORED_INMAILS' THEN 'INMAIL'
+            WHEN ad_format_type = 'SPONSORED_MESSAGE' THEN 'INMAIL'
+            WHEN ad_format_type LIKE '%WHITEPAPER%' THEN 'WHITEPAPER'
+            WHEN ad_format_type = 'TEXT_AD' THEN 'TEXT_AD'
+            WHEN ad_format_type LIKE '%SPOTLIGHT%' THEN 'SPOTLIGHT_DYNAMIC_AD'
+            WHEN ad_format_type LIKE '%FOLLOW_COMPANY%' THEN 'FOLLOW_COMPANY_DYNAMIC_AD'
+            ELSE ad_format_type
+          END) AS product_type,
+          SUM(impressions) AS impressions,
+          -- SUM(clicks) AS clicks,
+          SUM(totalengagements) AS totalengagements,
+          SUM(videoviews) AS videoviews,
+          SUM(cardimpressions) AS cardimpressions,
+          SUM(cardclicks) AS cardclicks,
+          SUM(opens) AS opens,
+          SUM(form_views) AS form_views,
+          SUM(leads) AS leads
+          -- SUM(revenue) AS revenue        
+  FROM u_${your ldap|help:ex: anshukla|type:raw}.funnel_product_base
+  GROUP BY 1,2
+)
+
+SELECT funnel_type,
+       product_type,
+      (CASE
+        WHEN funnel_type = 'AWARENESS (BRANDING)' AND product_type = 'STATUS_UPDATE'
+          THEN SUM(totalengagements)*100.00/SUM(impressions)
+        WHEN funnel_type = 'AWARENESS (BRANDING)' AND product_type = 'CAROUSEL'
+          THEN SUM(totalengagements + cardclicks)*100.00/SUM(impressions)
+        WHEN funnel_type = 'CONSIDERATION (ENGAGEMENT)' AND product_type <> 'CAROUSEL'
+          THEN SUM(totalengagements)*100.00/SUM(impressions)
+        WHEN funnel_type = 'CONSIDERATION (ENGAGEMENT)' AND product_type = 'CAROUSEL'
+          THEN SUM(totalengagements + cardclicks)*100.00/SUM(impressions)
+      ELSE NULL END) AS engagement_rate,
+     
+      (CASE
+        WHEN funnel_type = 'AWARENESS (BRANDING)' AND product_type = 'VIDEO'
+          THEN SUM(videoviews)*100.00/SUM(impressions)
+      ELSE NULL END) AS view_rate,
+
+      (CASE
+        WHEN funnel_type = 'CONSIDERATION (ENGAGEMENT)' AND product_type = 'INMAIL'
+          THEN SUM(opens)*100.00/SUM(impressions)
+      ELSE NULL END) AS mail_open_rate,
+     
+      IF(funnel_type = 'CONVERSION', SUM(form_views)*100.00/SUM(impressions), NULL) AS form_open_rate,
+      IF(funnel_type = 'CONVERSION', SUM(leads)*100.00/SUM(form_views), NULL) AS lead_rate
+     
+FROM funnel_product_master
+WHERE product_type IN ('STATUS_UPDATE','CAROUSEL','VIDEO','INMAIL')
+GROUP BY funnel_type, product_type
+ORDER BY funnel_type, product_type
+;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------
+-- Project Name: APAC Country Stat Pack
+-- Analysis Name: Product Insights
+-- Serial Number: Script 5 of 5
+-- Created By: LMS Insights, APAC
+-- Authors: Anshit Shukla, Vignesh R
+-- Last Update: 1-August-2022
+--------------------------------------------------------------------------
+
+--========================================================================
+-- Audience Distribution across Industries within the Region (Slide: 11)
+--========================================================================
+
+--00 - Drop any Distribution table if exists
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_distribution_target;
+
+--01 - Create Overall industries - Member Distribution
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_distribution_target AS
+with member_industry as(
+  select
+    distinct aa.member_id
+    ,ind.l1_industry_name as industry_group_name
+  from u_gsoins.lms_app_audienceanalyzer_array aa
+  cross join unnest(aa.l1_industries) as f (ind_group_id)
+  inner join u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw} aud
+    on aa.member_id = aud.member_id
+  left join u_gsoins.std_industry_mapping_v2 ind
+    on f.ind_group_id = ind.l1_industry_id
+  where true
+  and lower(ind.status) = 'active'
+  and ind.l1_industry_name is not null
+  and lower(ind.l1_industry_name)<>'unknown'
+)
+select
+  distinct z.industry_group_name as industry_group
+  , count(a.member_id) over(partition by z.industry_group_name) *1.00 / avg(aud_size) over() as audience_percentage
+from u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw} a
+inner join
+member_industry z
+on a.member_id = z.member_id
+cross join
+(select count(distinct member_id) as aud_size from member_industry)
+where true
+order by 2 desc
+;
+
+
+       
+--02 - Target Growth - Comparing growth of current year VS last year
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_growth_target;
+ 
+--03
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_growth_target AS
+SELECT  industry_group
+    , COUNT(CASE WHEN SUBSTR(CAST(created_month AS VARCHAR),1,10) < '${last year|type:raw}' THEN company_id ELSE NULL END) AS count_last_yr
+    , COUNT(CASE WHEN SUBSTR(CAST(created_month AS VARCHAR),1,10) BETWEEN '${last year|type:raw}'  AND '${last month|type:raw}'  THEN company_id ELSE NULL END) AS count_this_yr
+    , COUNT(CASE WHEN SUBSTR(CAST(created_month AS VARCHAR),1,10) BETWEEN '${last year|type:raw}' AND '${last month|type:raw}' THEN company_id ELSE NULL END)*1.00/
+            COUNT(CASE WHEN SUBSTR(CAST(created_month AS VARCHAR),1,10) < '${last year|type:raw}'  THEN company_id ELSE NULL END) AS industry_growth
+
+FROM
+    (
+    SELECT
+        II.company_id
+        , II.created_month
+        , DI.l1_industry_name AS industry_group
+    FROM
+        (
+            SELECT  DC.company_id,
+                DATE(FROM_UNIXTIME(DC.created_time/1000)) AS created_month,
+        DC.industry_id
+        FROM
+        (
+            select
+                member_id
+                , f.company_sk as company_id
+            from u_gsoins.lms_app_audienceanalyzer_array aa
+            cross join unnest(aa.companies) as f (company_sk)
+            where member_id in (select member_id from u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+        ) CC
+        LEFT JOIN
+        foundation_core_entity_mp.dim_company DC
+        ON CC.company_id = DC.company_id
+        WHERE TRUE
+        AND DC.company_id IS NOT NULL
+    -- Below filter is applied for the industry specific case of this narrative & can be removed, if required
+        GROUP BY 1,2,3
+        ) II
+        INNER JOIN u_gsoins.std_industry_mapping_v2 DI
+    ON II.industry_id = DI.industry_id
+    WHERE TRUE
+    AND lower(DI.status) = 'active'
+    GROUP BY 1,2,3
+    )
+GROUP BY 1
+ORDER BY 4 DESC
+;
+
+--04
+-- Output - industry_distribution
+SELECT  D.industry_group
+    , D.audience_percentage AS "Member Count %"
+    , COALESCE(G.industry_growth,0.00) AS "Company Growth %"
+FROM
+    u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_distribution_target D
+    LEFT JOIN
+    u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_growth_target G
+        ON D.industry_group = G.industry_group
+WHERE TRUE
+  AND D.industry_group <> 'Unknown'
+GROUP BY 1,2,3
+ORDER BY 2 DESC;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------
+-- Project Name: APAC Country Stat Pack
+-- Analysis Name: Product Insights
+-- Serial Number: Script 1 of 1
+-- Created By: LMS Insights, APAC
+-- Authors: Anshit Shukla, Vignesh R
+-- Last Update: 1-August-2022
+--------------------------------------------------------------------------
+
+---------------------------------------------------------------------------------------------------
+-- Step 0: Create base table for Baseline & Target Audience - Who are following different Brands
+-- Step 1: Combine Baseline & Followers to get the Comparitiive study
+-- Step 2: Bifurcate Data for Over-indexing, Tech, Manu & Edu segments
+---------------------------------------------------------------------------------------------------
+
+--========================================================================
+-- Audience Distribution across Seniorities within the Region (Slide: 14)
+--========================================================================
+
+--00
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.followers_target;
+
+--01
+CREATE TABLE u_${your ldap|help:ex: anshukla|type:raw}.followers_target AS
+SELECT  B.member_id,
+        A.company_id,
+        target_size
+FROM
+    u_metrics.company_follower___company_follower_metrics A
+  INNER JOIN
+    u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw} B
+  ON A.member_id = CAST(B.member_id AS BIGINT)
+ 
+  CROSS JOIN (SELECT COUNT(DISTINCT member_id) AS target_size FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+WHERE TRUE
+AND upper(employee_type_at_follow) <> 'IS_EMPLOYEE'
+AND is_spam_follower = 0
+AND company_id > 0
+-- AND employee_current_status IN ('NEVER_EMPLOYEE') --To remove the bias of following ex-companies
+GROUP BY 1,2,3;
+
+--02
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.followers_baseline;
+
+--03
+CREATE TABLE u_${your ldap|help:ex: anshukla|type:raw}.followers_baseline AS
+SELECT  B.member_id,
+        A.company_id,
+        baseline_size
+FROM
+   u_metrics.company_follower___company_follower_metrics A
+  INNER JOIN
+    u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_population_${country_table | type:raw} B
+  ON A.member_id = CAST(B.member_id AS BIGINT)
+ 
+  CROSS JOIN (SELECT COUNT(DISTINCT member_id) AS baseline_size FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_population_${country_table | type:raw})
+WHERE TRUE
+AND upper(employee_type_at_follow) <> 'IS_EMPLOYEE'
+AND is_spam_follower = 0
+AND company_id > 0
+-- AND employee_current_status IN ('NEVER_EMPLOYEE') --To remove the bias of following ex-companies
+GROUP BY 1,2,3;
+
+--04
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_followers;
+
+--05
+CREATE TABLE u_${your ldap|help:ex: anshukla|type:raw}.expn_followers AS
+SELECT  
+  A.company_id
+  , C.canonical_name AS company_name
+  , C.industry_id
+  , DI.industry_name
+  , DI.industry_group_name
+  , A.target_followers, A.target_size, A.target_followers*100.00/A.target_size AS target_pct_followers,
+        B.baseline_followers, B.baseline_size, B.baseline_followers*100.00/B.baseline_size AS baseline_pct_followers,
+        (A.target_followers*100.00/A.target_size)*1.00/(B.baseline_followers*100.00/B.baseline_size) AS t2b_index
+FROM
+  (
+    SELECT  company_id,
+            COUNT(DISTINCT member_id) AS target_followers,
+            AVG(target_size) AS target_size
+    FROM u_${your ldap|help:ex: anshukla|type:raw}.followers_target
+    --WHERE TRUE
+    GROUP BY 1
+  ) A
+INNER JOIN
+  (
+    SELECT  company_id,
+            COUNT(DISTINCT member_id) AS baseline_followers,
+            AVG(baseline_size) AS baseline_size
+    FROM u_${your ldap|help:ex: anshukla|type:raw}.followers_baseline
+    --WHERE TRUE
+    GROUP BY 1
+  ) B
+ON A.company_id = B.company_id
+INNER JOIN foundation_core_entity_mp.dim_company C
+ON A.company_id = C.company_id
+INNER JOIN foundation_core_entity_mp.dim_industry_std DI
+on C.industry_id = DI.industry_id
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12;
+
+
+----------------------------------------------------------
+--All RESULT (MOST FOLLOWED COMPANIES)
+----------------------------------------------------------
+--06 - Country Over indexing
+SELECT
+  company_name, t2b_index
+FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_followers
+WHERE TRUE
+AND target_pct_followers > 0.5
+AND LOWER(company_name) not like '%invalid%'
+GROUP BY 1,2
+ORDER BY t2b_index DESC
+LIMIT 50;
+
+--07 - Tech Audience
+SELECT
+  company_name, target_pct_followers
+FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_followers
+WHERE TRUE
+AND LOWER(company_name) not like '%invalid%'
+AND (industry_name IN ('Computer Networking')
+OR industry_group_name in ('Software & IT Services')
+)
+GROUP BY 1,2
+ORDER BY target_pct_followers DESC
+LIMIT 50;
+
+--08 - Manufacturer Industry
+SELECT
+  company_name, target_pct_followers
+FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_followers
+WHERE TRUE
+AND LOWER(company_name) not like '%invalid%'
+AND (industry_name IN ('Computer Hardware','Semiconductors','Medical Device')
+OR industry_group_name in ('Consumer Goods','Manufacturing')
+)
+AND industry_name NOT IN ('Consumer Services','Wine & Spirits','Renewables & Environment')
+GROUP BY 1,2
+ORDER BY target_pct_followers DESC
+LIMIT 50;
+
+--09 - Education Audience
+SELECT
+  company_name, target_pct_followers
+FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_followers
+WHERE TRUE
+AND LOWER(company_name) not like '%invalid%'
+AND industry_group_name in ('Education')
+AND industry_name NOT IN ('Research')
+GROUP BY 1,2
+ORDER BY target_pct_followers DESC
+LIMIT 50;
+
+
+
+
+
+
+
+
+--------------------------------------------------------------------------
+-- Project Name: APAC Country Stat Pack
+-- Analysis Name: Product Insights
+-- Serial Number: Script 10 of 10
+-- Created By: LMS Insights, APAC
+-- Authors: Anshit Shukla, Vignesh R
+-- Last Update: 1-August-2022
+--------------------------------------------------------------------------
+
+--=====================================================
+-- Slide 19 - Section 1: Top Member Interests
+--=====================================================
+
+--00
+with member_interests as (
+  SELECT
+    CAST(member_id AS BIGINT) AS member_id
+    , interest_name
+  FROM u_gsoins.member_interest
+  WHERE CAST(member_id AS BIGINT) IN (
+    SELECT member_id
+    FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_sample_${country_table | type:raw}
+  )
+  AND coalesce(cast(interest_name as varchar),'')<>''
+)
+SELECT
+    DISTINCT interest_name
+    , count(z.member_id) over(partition by z.interest_name) *1.00 / avg(aud_size) over() as audience_percentage
+from member_interests z
+cross join
+(select count(distinct member_id) as aud_size from member_interests)
+ORDER BY 2 DESC
+LIMIT 100
+;
+
+
+--=============================================
+-- Slide 19 - Section 2: Over-indexing Topics Read
+--=============================================
+
+-- Audience-Article Engagements
+--01
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.article_engagement_target;
+
+--02
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.article_engagement_target AS
+SELECT  
+    article_id
+    , SUM(CASE WHEN activity_type IN ('unlike','unshare','uncomment') THEN -1*events ELSE events END) AS engagement
+FROM u_tcact.user_action
+WHERE TRUE
+    AND member_sk IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+    AND datepartition BETWEEN cast(date_add('month',-6,current_date) as varchar)||'-00' AND cast(current_date as varchar)||'-00'
+    AND article_id > 0
+GROUP BY 1
+;
+
+--03
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.article_engagement_baseline;
+
+--04
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.article_engagement_baseline AS
+SELECT  
+    article_id
+    , SUM(CASE WHEN activity_type IN ('unlike','unshare','uncomment') THEN -1*events ELSE events END) AS engagement
+FROM u_tcact.user_action
+WHERE TRUE
+    AND member_sk IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_baseline_audience_population_${country_table | type:raw})
+    AND datepartition BETWEEN cast(date_add('month',-6,current_date) as varchar)||'-00' AND cast(current_date as varchar)||'-00'
+    AND article_id > 0
+GROUP BY 1
+;
+
+--05 Audience-Topic Engagements
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.topic_engagement_target;
+
+--06
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.topic_engagement_target AS
+SELECT  
+    B.topic
+    , SUM(engagement) AS total_target_engagement
+FROM
+    u_${your ldap|help:ex: anshukla|type:raw}.article_engagement_target AS A
+LEFT JOIN
+(
+  SELECT  article_id,
+          tag.name AS topic
+  FROM u_tcact.articles CROSS JOIN UNNEST(tags) AS t(tag)
+  WHERE tag.score > 0.5
+) B
+ON A.article_id = B.article_id
+GROUP BY 1
+;
+
+--07
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.topic_engagement_baseline;
+
+--08
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.topic_engagement_baseline AS
+SELECT  
+    B.topic
+    , SUM(engagement) AS total_baseline_engagement
+FROM
+    u_${your ldap|help:ex: anshukla|type:raw}.article_engagement_baseline AS A
+LEFT JOIN
+(
+  SELECT  article_id,
+          tag.name AS topic
+  FROM u_tcact.articles CROSS JOIN UNNEST(tags) AS t(tag)
+  WHERE tag.score > 0.5
+) B
+ON A.article_id = B.article_id
+GROUP BY 1
+;
+
+--Output for Over-indexed topics read
+--09
+SELECT  *
+      , (total_target_engagement*1.00/target_tot) / (total_baseline_engagement*1.00/baseline_tot) as relative_target_engagement
+FROM
+(
+  SELECT  A.topic
+          , A.total_target_engagement
+          , B.total_baseline_engagement
+          -- , TRY(A.total_target_engagement*100.00/B.total_baseline_engagement) AS relative_target_engagement
+          -- , AVG(A.total_target_engagement) OVER () AS target_avg
+          -- , AVG(B.total_baseline_engagement) OVER () AS baseline_avg
+          , SUM(A.total_target_engagement) OVER () AS target_tot
+          , SUM(B.total_baseline_engagement) OVER () AS baseline_tot
+  FROM u_${your ldap|help:ex: anshukla|type:raw}.topic_engagement_target A
+  LEFT JOIN u_${your ldap|help:ex: anshukla|type:raw}.topic_engagement_baseline B
+  ON A.topic = B.topic
+  where A.topic is not null
+)
+WHERE TRUE
+-- AND total_target_engagement > target_avg
+-- AND total_baseline_engagement > baseline_avg
+-- AND total_target_engagement > total_baseline_engagement
+AND total_target_engagement > 3
+AND total_target_engagement*100.00/target_tot >= 0.15
+ORDER BY 6 DESC
+LIMIT 100
+;
+
+
+
+with cities_distribution as (
+  SELECT
+    mem.market_area AS city_name
+    , COUNT(distinct aud.member_id) AS aud_cnt
+  FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw} aud -- target audience table
+    INNER JOIN foundation_core_entity_mp.dim_member_all mem
+    ON mem.member_id = aud.member_id
+  WHERE TRUE
+      AND is_duplicate = FALSE
+      AND is_test_member = FALSE
+      AND is_guest_member = FALSE
+  GROUP BY 1
+)
+SELECT
+  distinct city_name
+  , (sum(a.aud_cnt) OVER (PARTITION BY city_name))*1.00/(avg(aud_size) OVER ()) AS audience_pct
+FROM cities_distribution a
+cross join (select sum(aud_cnt) as aud_size from cities_distribution)
+WHERE TRUE
+    AND city_name IS NOT NULL
+ORDER BY 2 DESC
+LIMIT 10
+;
+
+
+--------------------------------------------------------------------------
+-- Project Name: APAC Country Stat Pack
+-- Analysis Name: Product Insights
+-- Serial Number: Script 11 of 11
+-- Created By: LMS Insights, APAC
+-- Authors: Anshit Shukla, Vignesh R
+-- Last Update: 1-August-2022
+-- Type: Marketing Activity Trends
+--------------------------------------------------------------------------
+
+--=======================================================
+-- Sponsored Activity Trends (Slides : 40-42)
+--=======================================================
+describe u_adsreporting.engagement_tracking_metrics;
+--00 On-Platform impressions
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_impressions_onp;
+
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend AS
+SELECT  
+--         A.header__memberid AS member_id,
+--         A.campaigntypeint AS campaign_type,
+--         (CASE
+--           WHEN A.objectivetype = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+--           WHEN A.objectivetype = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'VIDEO_VIEW' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'LEAD_GENERATION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'JOB_APPLICANT' THEN 'CONVERSION'
+--           ELSE NULL
+--         END) AS funnel_type,
+--         A.adformat,
+        FALSE AS is_lan,
+        CAST(CONCAT(SUBSTR(a.datepartition,1,7), '-01') as DATE) AS mon,
+        SUM(A.costinusd) AS cost,
+--         SUM(A.costincurrency) AS costincurrency,
+        COALESCE(SUM(impressions),0) AS onp_imp,
+        COALESCE(SUM(totalengagements),0) AS onp_engagements,
+        COALESCE(SUM(externalwebsitepostviewconversions),0) AS offp_imp,
+        COALESCE(SUM(externalwebsitepostclickconversions),0) AS offp_engagements
+FROM u_adsreporting.engagement_tracking_metrics A
+WHERE TRUE
+
+AND CAST(SUBSTR(A.datepartition,1,10) as DATE) BETWEEN
+    DATE_ADD('day',-730,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AND
+    DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE))
+AND A.header.memberid IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+AND A.header.memberid > 0
+GROUP BY 1,2;
+
+/*
+--02 Off-platform impressions
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_impressions_offp;
+
+--03
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_impressions_offp AS
+SELECT  
+--         A.header__memberid AS member_id,
+--         14 AS campaign_type,
+--         (CASE
+--           WHEN A.objectivetype = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+--           WHEN A.objectivetype = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'VIDEO_VIEW' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'LEAD_GENERATION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'JOB_APPLICANT' THEN 'CONVERSION'
+--           ELSE NULL
+--         END) AS funnel_type,
+--         A.adformat,
+        TRUE AS is_lan,
+        CAST(SUBSTR(b.datepartition,1,7)) AS mon,
+        SUM(A.costinusd) AS cost,
+--         SUM(A.chargeamountincurrency) AS costincurrency,
+        COALESCE(SUM(impresssions),0) AS imp,
+        COALESCE(SUM(totalengagements),0) AS engagements,
+
+FROM tracking_column.adrealtimebiddingimpressionevent A
+WHERE TRUE
+AND CAST(SUBSTR(A.datepartition,1,10) BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-730,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND A.header.memberid IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+AND A.header.memberid > 0
+GROUP BY 1,2;
+
+--04 On-platform engagements
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_engagements_onp;
+
+--05
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_engagements_onp AS
+SELECT  
+--         A.header__memberid AS member_id,
+--         A.campaigntypeint AS campaign_type,
+--         (CASE
+--           WHEN A.objectivetype = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+--           WHEN A.objectivetype = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'VIDEO_VIEW' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'LEAD_GENERATION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'JOB_APPLICANT' THEN 'CONVERSION'
+--           ELSE NULL
+--         END) AS funnel_type,
+--         A.adformat,
+        FALSE AS is_lan,
+        SUBSTR(A.datepartition,1,7) AS mon,
+        SUM(A.cost) AS cost,
+--         SUM(A.costincurrency) AS costincurrency,
+--         SUM(CASE WHEN A.clicktype = 1 THEN 1 ELSE 0 END) AS paid_clicks,
+        COALESCE(SUM(1),0) AS engagements
+FROM tracking_column.adclickevent A
+WHERE TRUE
+AND (A.status = 1 OR (A.status = 4 and contains(map_keys(A.validationfailures),'11') = True AND contains(map_keys(A.validationfailures),'15') = False))
+AND A.clicktype IN (1,2)
+AND A.datepartition BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-730,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND A.header__memberid IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+AND A.header__memberid > 0
+GROUP BY 1,2;
+
+--06 Off-platform engagements
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_engagements_offp;
+
+--07
+CREATE TABLE IF NOT EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_engagements_offp AS
+SELECT  
+--         A.header__memberid AS member_id,
+--         14 AS campaign_type,
+--         (CASE
+--           WHEN A.objectivetype = 'BRAND_AWARENESS' THEN 'AWARENESS (BRANDING)'
+--           WHEN A.objectivetype = 'ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'CREATIVE_ENGAGEMENT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'VIDEO_VIEW' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_VISIT' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'WEBSITE_TRAFFIC' THEN 'CONSIDERATION (ENGAGEMENT)'
+--           WHEN A.objectivetype = 'LEAD_GENERATION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'WEBSITE_CONVERSION' THEN 'CONVERSION'
+--           WHEN A.objectivetype = 'JOB_APPLICANT' THEN 'CONVERSION'
+--           ELSE NULL
+--         END) AS funnel_type,
+--         A.adformat,
+        TRUE AS is_lan,
+        SUBSTR(A.datepartition,1,7) AS mon,
+        SUM(A.chargeamount) AS cost,
+--         SUM(A.chargeamountincurrency) AS costincurrency,
+--         COALESCE(SUM(1),0) AS paid_clicks,
+        COALESCE(SUM(1),0) AS engagements
+FROM tracking_column.adrealtimebiddingclickevent A
+WHERE TRUE
+AND (LOWER(A.status) = 'valid' OR
+    (LOWER(A.status) = 'unchargeable' and contains(map_keys(A.validationfailures),'11') = True AND contains(map_keys(A.validationfailures),'15') = False))
+AND A.datepartition BETWEEN
+    CONCAT(CAST(DATE_ADD('day',-730,DATE_ADD('day',-1,DATE_TRUNC('month', CURRENT_DATE))) AS VARCHAR),'-00') AND
+    CONCAT(CAST(DATE_ADD('day', -1, DATE_TRUNC('month', CURRENT_DATE)) AS VARCHAR),'-00')
+AND A.header__memberid IN (SELECT member_id FROM u_${your ldap|help:ex: anshukla|type:raw}.expn_target_audience_population_${country_table | type:raw})
+AND A.header__memberid > 0
+GROUP BY 1,2;
+*/
+
+-- 08 RESULT:  Sponsored Impressions Trend
+SELECT  mon,
+        SUM(impressions) AS impressions
+FROM
+(
+  SELECT * FROM
+  (
+    SELECT mon
+    , SUM(onp_imp) AS onp_impressions
+    , SUM(offp_imp) AS offp_impressions
+    FROM u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend
+     GROUP BY 1
+  )
+) GROUP BY 1;
+
+
+-- 09 RESULT:  Sponsored Engagements Trend
+SELECT  mon,
+        SUM(engagements) AS engagements
+FROM
+(
+  SELECT * FROM
+  (
+    SELECT mon
+    , SUM(onp_engagements) AS onp_engagements
+    , SUM(offp_engagements) AS offp_engagements
+    FROM u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend
+     GROUP BY 1
+ 
+  )
+) GROUP BY 1;
+
+-- 10 RESULT:  Sponsored Ad Spends Trend
+SELECT  mon,
+        SUM(cost) AS cost -- Keep changing between cost
+FROM
+(
+  SELECT * FROM
+  (
+    SELECT
+         mon
+         , SUM(cost) AS cost--, SUM(costincurrency) AS costincurrency
+     FROM u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend
+     GROUP BY 1
+  )
+) GROUP BY 1;
+
+
+----------------------------------------------------------------------------
+-- Cleanup - Created tables
+----------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_impressions_onp;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_impressions_offp;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_engagements_onp;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.bim_adspend_engagements_offp;
+
+
+----------------------------------------------------------------------------
+-- Cleanup - Created tables
+----------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.expn_followers;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.followers_target;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.followers_baseline;
+
+
+
+----------------------------------------------------------------------------
+-- Cleanup - Created tables
+----------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_distribution_target;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sna_industry_growth_target;
+----------------------------------------------------------------------------
+-- Cleanup - Created tables
+----------------------------------------------------------------------------
+
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.ee_campaigns_engaging_target_population;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.sc_agg_target;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.im_agg_target;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.lg_agg_target;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.oba_product_base_data;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.oba_product_master_data;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.engaging_campaigns;
+DROP TABLE IF EXISTS u_${your ldap|help:ex: anshukla|type:raw}.funnel_product_base;
