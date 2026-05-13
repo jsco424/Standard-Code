@@ -1,0 +1,460 @@
+------------------------------
+--OPEN AI SOV MONTHLY REPORT
+------------------------------
+
+
+SET SESSION li_authorization_user = 'insshare';
+SET SESSION viewshift_enabled = true;
+-- Check if the session is activated
+SHOW SESSION LIKE 'viewshift_enabled';
+
+-- Seniority: Entry, Senior, Manager, Director, VP, Partner, CXO, Owner.
+-- 3,5,6,7,9,8,10
+-- Industry: Computers and Electronics Manufacturing, Machinery Manufacturing, Business Consulting and Services, IT Services and IT Consulting, Technology, Information and Media, Technology, Information and Internet,
+-- 24, 55, 11, 96, 1594, 6
+-- Company Sizes: 11 employees+
+-- 3,4,5,6,7,8,9
+-- Competitors included: "200+ company pages related to TD Synnex, Arrow Electronics, D&H, Exclusive Networks, AVNET, Pax8
+
+-- select * from u_gsoins.lms_core_audience_array_union limit 5;
+-- select * from u_gsoins.std_industry_mapping_v2 where industry_name like '%Technology%';
+
+--run_id : gb25 for Global both on & off platform
+--run_id :usb25 for US both on & off platform
+
+-------------------------
+--pull list of advertiser id's relevant to OpenAI
+-------------------------
+SELECT 
+  b.canonical_name as company_name,
+  camp.advertiser_id,
+  camp.campaign_id,
+  camp.campaign_name,
+  camp.ad_format
+FROM foundation_lms_mp.dim_sas_campaign camp
+join prod_foundation_tables.dim_company b
+on b.company_id = camp.company_id
+WHERE 1=1
+  AND camp.company_id IN (
+   1441,1035,98815486,10667,35482514,74126343,106863934,88007673
+  )
+AND date_format(from_unixtime(camp.start_time / 1000), '%Y-%m-%d')
+      BETWEEN '2025-12-01' AND '2025-12-31';
+      
+      
+      
+
+
+drop table if exists u_insshare.${run_id}__custom_target_audience;
+create table u_insshare.${run_id}__custom_target_audience as
+select
+  distinct member_id
+from u_gsoins.lms_core_audience_array_union
+   -- cross join unnest (titles) as t (title)
+   -- CROSS JOIN UNNEST (functions) AS t (function)
+CROSS JOIN UNNEST (seniorities) AS s (seniority)
+CROSS JOIN UNNEST (industries) AS i (industrie)
+CROSS JOIN UNNEST (co_sizes) AS i (co_size)
+
+where 1=1
+and country_code in ('us') --comment this out for global audience
+and filter(seniorities, x -> x in (3,5,6,7,9,8,10)) != ARRAY[] --
+--and filter(industries, x -> x in (24, 55, 11, 96, 1594, 6)) != ARRAY[]
+and filter(co_sizes, x -> x in (3,4,5,6,7,8,9)) != ARRAY[]
+--and member_id in (select  memberid from ${ldap |type:varchar}.{run_id}_custom_target_audience_skills where skillsid in (20020,9009,12870,39826,1774) )
+-- and filter(seniorities, x -> x in (6,7,8,9,10)) != ARRAY[]
+--and titles in (533,896,2776,4596,896,20496,21005,22150,2358,3509,4210,8669,10728,11357,11422,13002,17814,5183)
+-- and (filter(functions, x -> x in (${function_sk list|help:inputs from the 'function' tab of go/measureinputs|type:raw})) != ARRAY[]
+-- or (filter(titles, x -> x in (${title|type:raw}) or 0 in (${title|type:raw}))) != ARRAY[])
+;
+
+
+--create base table for clients
+drop table if exists u_insshare.${run_id}_company_peer_table;
+create table u_insshare.${run_id}_company_peer_table (
+    	-- company_id bigint
+    	company_grouping varchar
+	--	,advertiser_id bigint
+		,campaign_id bigint
+    	,target_peers varchar
+);
+
+
+--Get advertiser ids for client 
+insert into u_insshare.${run_id}_company_peer_table 
+select distinct
+	 --2576 as companypage_id
+	 'OpenAI' as company_grouping
+	-- ,camp.advertiser_id
+	 ,camp.campaign_id
+     ,'client' as target_peers
+from foundation_lms_mp.dim_sas_campaign camp
+where 1=1
+and camp.company_id in (11130470) --open AI
+--and advertiser_id in (515645455,502686760)
+;
+
+
+--insert peer data
+insert into u_insshare.${run_id}_company_peer_table 
+select distinct
+	--  camp.company_id
+	 'Google Gemini' as company_grouping
+	-- ,camp.advertiser_id
+	 ,camp.campaign_id
+     ,'peer' as target_peers
+from foundation_lms_mp.dim_sas_campaign camp
+where 1=1 
+and (camp.campaign_id in (480600356,480520466,460242623,460203223,460002193,455922973,480123886,480243066,480153486,480105726,480594476,480163546,480454616,480123966,480631196,480313436)) -- replace Account ID
+;
+
+insert into u_insshare.${run_id}_company_peer_table 
+select distinct
+	--  camp.company_id
+	 'Microsoft Copilot' as company_grouping
+	-- ,camp.advertiser_id
+	 ,camp.campaign_id
+     ,'peer' as target_peers
+from foundation_lms_mp.dim_sas_campaign camp
+where 1=1 
+and (camp.campaign_id in (477458426,477498956,477428846,484026216,488693906,488693886,482011586,480909086,476928186,476818926,476941936,480484006,476819026,476739176,476719596,476938036,482041796,480919126,480947296,480972586,480972686,480919296,480889516,480992486,484221516,482305196,482363696,482209806,482315186,482422776,482235026,482315196,482218986,489373146,473392716,473531786,473353986,473462576,476985576,477164356,477095176,477035666,477173946,477095656,477064676,477055456,477164406,477075026,476948426,477154076,477064846,476947716,477153956,477014836,482219046,482334816,482403416,482751166,482255666,482305076,482209856,482209616,458528734,484036156,477369216,480095306,476634316,484114886,484085186)) -- replace Account ID
+;
+
+
+insert into u_insshare.${run_id}_company_peer_table 
+select distinct
+	--  camp.company_id
+	 'Anthropic' as company_grouping
+	-- ,camp.advertiser_id
+	 ,camp.campaign_id
+     ,'peer' as target_peers
+from foundation_lms_mp.dim_sas_campaign camp
+where 1=1 
+and (camp.campaign_id in (488820116,488830116,488629566,488639906,488800346,488688826,488669436,488738096,486550026,488688836,454706094,454496784)) -- replace Account ID
+;
+
+insert into u_insshare.${run_id}_company_peer_table 
+select
+	--  camp.company_id
+	 'Claude' as company_grouping
+	-- ,camp.advertiser_id
+	 ,camp.campaign_id
+     ,'peer' as target_peers
+from foundation_lms_mp.dim_sas_campaign camp
+where 1=1 
+and (camp.campaign_id in (477749186,477778796,454823704)) -- replace Account ID
+;
+
+insert into u_insshare.${run_id}_company_peer_table 
+select distinct
+	--  camp.company_id
+	 'Meta AI' as company_grouping
+	 --,camp.advertiser_id
+	 ,camp.campaign_id
+     ,'peer' as target_peers
+from foundation_lms_mp.dim_sas_campaign camp
+where 1=1 
+and (camp.campaign_id in (460871073)) -- replace Account ID
+;
+
+
+--create campaign list
+drop table if exists u_insshare.${run_id}_sov_campaign_list;
+create table u_insshare.${run_id}_sov_campaign_list as
+select distinct
+   b.company_grouping
+  ,a.campaign_id
+  ,b.target_peers
+from foundation_lms_mp.dim_sas_campaign a
+inner join u_insshare.${run_id}_company_peer_table  b
+-- on a.company_id = b.companypage_id JOINING ON COMPANY ID CAUSES DUPLICATIONS - ty Gabriel!!!
+on a.campaign_id = b.campaign_id
+where 1=1
+  and campaign_type_info.id in (5,14,15,22) -- sponsored content, Message_Ads, dynamic, text ads aka direct ads
+    and (product_type is null or product_type = 'MARKETING_SOLUTIONS')
+  --- exclude talent and job ads (comment this out if you want to include all ad tups)
+  --and (objective_type not in ('TALENT_LEAD','JOB_APPLICANT') or objective_type is null)
+  -- AND a.campaign_id IN (SELECT campaign_id FROM foundation_lms_mp.agg_f_sas_campaign_summary
+    --                      WHERE li_business_vertical IN ('LMS-TCM') AND company_id IN (${company_id},${peer_ids})) --include only LMS and LMS-TCM campaigns & exclude LTS
+;
+
+select * from u_insshare.${run_id}_sov_campaign_list ;
+
+-----------------------------------------------------------------------------------------------
+
+--create placeholder for impression data
+drop table if exists u_insshare.${run_id}_sov_lms_data_raw;
+create table u_insshare.${run_id}_sov_lms_data_raw (
+ company_grouping varchar
+  -- company_name varchar
+  -- ,companypage_id bigint
+  -- ,company_id bigint
+  ,campaign_id bigint
+  ,datepartition varchar
+  ,member_id bigint
+  ,imps bigint
+  ,sponsored bigint
+  ,target_peers varchar
+);
+
+
+---- Get impressions for on-platform impressions
+
+insert into u_insshare.${run_id}_sov_lms_data_raw
+select
+  -- a.company_name
+  company_grouping
+  -- ,a.companypage_id
+  -- ,a.company_id
+  ,a.campaign_id
+  ,b.datepartition
+  ,b.header__memberid as member_id
+  ,coalesce(sum(1),0) as imps
+  ,1 as sponsored
+  ,a.target_peers
+from tracking_column.adimpressionevent b
+inner join u_insshare.${run_id}_sov_campaign_list a
+  on a.campaign_id=b.campaignid
+inner join u_insshare.${run_id}__custom_target_audience c
+  on b.header__memberid = c.member_id
+-- where cast(b.datepartition as date) between cast(${start_date} as date) and cast(${end_date} as date) -- replace dates
+where 1=1
+-- and datepartition between '2024-01-01' and '2024-03-30'
+-- and datepartition between '2024-04-01' and '2024-06-31'
+-- and datepartition between '2025-01-01' and '2025-03-30'
+-- and datepartition between '2025-07-01' and '2025-09-30'
+and datepartition between '2025-12-01' and '2025-12-31'
+  -- 1 is paid/valid and 4 is viral/unchargable  (see below)
+  and (statusint=1 OR
+--includes VIRAL imps (see comments in header above for detailed explanation on how to calculate viral)
+  (statusint=4 and contains(map_keys(validationfailures),'11')=True and contains(map_keys(validationfailures),'15')=False))
+  -- text ads, sponsored content, Message_Ads, dynamic (see below)
+  and b.campaigntypeint in (5,14,15,22)
+group by 1,2,3,4,7
+;
+
+
+-- Get Off Platform (LAN) Impressions for those campaigns
+-- comment this insert statement to exclude off platform impressions/LAN
+
+insert into u_insshare.${run_id}_sov_lms_data_raw
+select
+company_grouping
+  -- a.company_name
+  -- ,a.companypage_id
+  -- ,a.company_id
+  ,a.campaign_id
+  ,b.datepartition
+  ,b.header__memberid as member_id
+  ,coalesce(sum(1),0) as imps
+  ,1 as sponsored
+  ,a.target_peers
+from tracking_column.adrealtimebiddingimpressionevent b
+inner join u_insshare.${run_id}_sov_campaign_list a
+  on a.campaign_id = cast(regexp_extract(b.campaignurn,'urn:li:sponsoredCampaign:([0-9]+)',1) as bigint)
+inner join u_insshare.${run_id}__custom_target_audience c
+  on b.header__memberid = c.member_id
+-- where cast(b.datepartition as date) between cast(${start_date} as date) and cast(${end_date} as date)-- replace dates
+where 1=1
+-- and datepartition between '2024-01-01' and '2024-03-30'
+-- and datepartition between '2024-04-01' and '2024-06-31'
+-- and datepartition between '2025-01-01' and '2025-03-30'
+-- and datepartition between '2025-07-01' and '2025-09-30'
+   and datepartition between '2025-12-01' and '2025-12-31'
+  -- valid or unchargeable (see below)
+  and lower(status) in ('valid','unchargeable')
+group by 1,2,3,4,7
+;
+
+
+-- select min(datepartition) from tracking_column.adrealtimebiddingimpressionevent ;
+
+--paid impressions
+
+drop table if exists  u_insshare.${run_id}_paid_impressions;
+create table  u_insshare.${run_id}_paid_impressions as (
+    select analysis
+         , mth
+         -- , companypage_id
+         -- , company_name
+         , company_grouping
+         , target_peers
+         , reach
+         , brand_imps
+         , cast(brand_imps as double) / sum(brand_imps) over (partition by (mth)) as SOV
+    from (
+             select 'reach and frequency'                                 as analysis
+                  , date_trunc('month', date(substr(datepartition,1,10))) as mth
+                  -- , companypage_id
+                  -- , company_name
+                  , company_grouping
+                  , target_peers
+                  , sum(imps)                                             as brand_imps
+                  , count(distinct member_id)                             as reach
+                  , rank() over (partition by 'reach and frequency' order by sum(imps) desc) as rnk
+             from  u_insshare.${run_id}_sov_lms_data_raw
+             group by 1, 2, 3,4
+         ) a
+             cross join
+         (
+             select count(distinct member_id) as total_audience_size
+             from  u_insshare.${run_id}__custom_target_audience
+         ) b
+    group by 1, 2, 3, 4, 5, 6
+);
+
+
+drop table if exists  u_insshare.${run_id}_paid_impressions_2;
+create table  u_insshare.${run_id}_paid_impressions_2 as (
+    select analysis
+         -- , mth
+         -- , companypage_id
+         -- , company_name
+         , company_grouping
+         , target_peers
+         , reach
+         , brand_imps
+         , cast(brand_imps as double) / sum(brand_imps) over () as SOV
+    from (
+             select 'reach and frequency'                                 as analysis
+                  -- , date_trunc('month', date(substr(datepartition,1,10))) as mth
+                  -- , companypage_id
+                  -- , company_name
+                  , company_grouping
+                  , target_peers
+                  , sum(imps)                                             as brand_imps
+                  , count(distinct member_id)                             as reach
+                  , rank() over (partition by 'reach and frequency' order by sum(imps) desc) as rnk
+             from  u_insshare.${run_id}_sov_lms_data_raw
+             group by 1, 2, 3
+         ) a
+             cross join
+         (
+             select count(distinct member_id) as total_audience_size
+             from  u_insshare.${run_id}__custom_target_audience
+         ) b
+    group by 1, 2, 3, 4, 5
+);
+
+select * from  u_insshare.${run_id}_paid_impressions;
+
+---------------------------------------------------------------------------------------------------------
+-- --SOV breakout
+--output 1
+with peers as (
+    select
+           mth,
+           approx_percentile(SOV,.75) as top_performing_SOV,
+           approx_percentile(SOV,.5) as median_SOV,
+           approx_percentile(SOV,.25) as low_perf_SOV
+    from  u_insshare.${run_id}_paid_impressions
+    where target_peers in ('peer')
+    group by 1
+    order by 1 asc),
+
+     client as (select 
+                       mth,
+                       -- companypage_id,
+                       sum(brand_imps) as imps,
+                       company_grouping,
+                       SOV as client_SOV
+                from  u_insshare.${run_id}_paid_impressions
+                where target_peers in ('client')
+                group by 1,3,4
+                order by 1 asc)
+
+select 
+        -- 'Global' as region,   -- update this for global audience
+        'US' as region, 
+        'Both Onplatform & LAN' as LAN, -- update this when LAN is excluded
+        p.mth,
+        c.imps as client_imp,
+       top_performing_SOV,
+       median_SOV,
+       low_perf_SOV,
+       client_SOV
+from  peers p
+          inner join client c on p.mth = c.mth
+order by 1 asc
+;
+
+--output 2
+SELECT
+    'US' AS region,
+    'Both Onplatform & LAN' AS LAN,
+    'Dec2025' AS time_period,
+    approx_percentile(SOV, 0.75) AS top_performing_SOV,
+    approx_percentile(SOV, 0.5) AS median_SOV,
+    approx_percentile(SOV, 0.25) AS low_perf_SOV,
+    (SELECT SOV FROM u_insshare.open_ai_paid_impressions_2 WHERE target_peers IN ('client') LIMIT 1) AS client_SOV,
+    (SELECT SUM(brand_imps) FROM u_insshare.open_ai_paid_impressions_2 WHERE target_peers IN ('client')) AS client_imp
+FROM u_insshare.open_ai_paid_impressions_2
+WHERE target_peers IN ('peer')
+ORDER BY 1 ASC;
+
+
+/*
+-- --SOV breakout
+--output 1
+with peers as (
+    select,
+           mth,
+           approx_percentile(SOV,.75) as top_performing_SOV,
+           approx_percentile(SOV,.5) as median_SOV,
+           approx_percentile(SOV,.25) as low_perf_SOV
+    from  ${ldap |type:varchar}.{run_id}_paid_impressions
+    where target_peers in ('peer')
+    group by 1
+    order by 1 asc),
+
+     client as (select 
+                       mth,
+                       -- companypage_id,
+                       company_grouping,
+                       SOV as client_SOV
+                from  ${ldap |type:varchar}.{run_id}_paid_impressions
+                where target_peers in ('client')
+                order by 1 asc)
+
+select 
+        'Global' as region,   -- update this for global audience
+        'with LAN' as LAN, -- update this when LAN is excluded
+        p.mth,
+       top_performing_SOV,
+       median_SOV,
+       low_perf_SOV,
+       client_SOV
+from  peers p
+          inner join client c on p.mth = c.mth
+order by 1 asc
+;
+
+--output 2
+    select
+          'Global' as region,    -- update this for global audience
+          'with LAN' as LAN, -- update this when LAN is excluded
+          'July1_Sep30_2025' as time_period, -- update this when you change the date range
+           approx_percentile(SOV,.75) as top_performing_SOV,
+           approx_percentile(SOV,.5) as median_SOV,
+           approx_percentile(SOV,.25) as low_perf_SOV,
+           (select SOV as client_SOV from  ${ldap |type:varchar}.{run_id}_paid_impressions_2 where target_peers in ('client')) as client_SOV
+    from  ${ldap |type:varchar}.{run_id}_paid_impressions_2
+    where target_peers in ('peer')
+    -- group by 1
+    order by 1 asc
+  ;  
+*/
+
+-------------------------------------------------------------------------------
+
+--All drop table statements
+
+-- drop table if exists u_insshare.${topic_name_or_identifier}_companies_list;
+-- drop table if exists u_insshare.${run_id}_company_table_details;
+-- drop table if exists u_insshare.${run_id}_company_peer_table;
+-- drop table if exists u_insshare.${run_id}_sov_campaign_list;
+-- drop table if exists u_insshare.${run_id}_SOV_CALC_TEST;
+-- drop table if exists u_insshare.${run_id}_sov_lms_data_raw_test_final;
+-- drop table if exists u_insshare.${run_id}_paid_impressions;
+
+-- Nneed too add impressions
