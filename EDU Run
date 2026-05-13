@@ -1,0 +1,638 @@
+SET SESSION li_authorization_user = 'insshare';
+SET SESSION viewshift_enabled=TRUE;
+
+drop TABLE if exists u_{owner}.region_map_table_{run_id};
+CREATE TABLE u_{owner}.region_map_table_{run_id} 
+(
+    region VARCHAR,
+    state VARCHAR,
+	state_abrv VARCHAR,
+    country VARCHAR
+);
+
+INSERT INTO u_{owner}.region_map_table_{run_id} (region, state, state_abrv, country) VALUES
+('Anniston-Oxford Metropolitan Area','Alabama','AL','United States'),
+('Atlanta Metropolitan Area','Alabama','AL','United States'),
+('Greater Birmingham, Alabama Area','Alabama','AL','United States'),
+('Greater Chattanooga','Alabama','AL','United States'),
+('Greater Columbus Area','Alabama','AL','United States'),
+('Greater Dothan','Alabama','AL','United States'),
+('Greater Florence-Muscle Shoals, Alabama Area','Alabama','AL','United States'),
+('Greater Gadsden Area','Alabama','AL','United States'),
+('Greater Montgomery Area','Alabama','AL','United States'),
+('Greater Tuscaloosa Area','Alabama','AL','United States'),
+('Huntsville-Decatur-Albertville Area','Alabama','AL','United States'),
+('Mobile Metropolitan Area','Alabama','AL','United States'),
+('Pensacola Metropolitan Area','Alabama','AL','United States'),
+('Greater Anchorage Area','Alaska','AK','United States'),
+('Greater Fairbanks Area','Alaska','AK','United States'),
+('Greater Flagstaff Area','Arizona','AZ','United States'),
+('Greater Phoenix Area','Arizona','AZ','United States'),
+('Greater Prescott, AZ Area','Arizona','AZ','United States'),
+('Greater Sierra Vista-Douglas Area','Arizona','AZ','United States'),
+('Greater Tucson Area','Arizona','AZ','United States'),
+('Greater Yuma, AZ Area','Arizona','AZ','United States'),
+('Las Vegas Metropolitan Area','Arizona','AZ','United States'),
+('Greater Fayetteville, AR Area','Arkansas','AR','United States'),
+('Greater Fort Smith Area','Arkansas','AR','United States'),
+('Greater Texarkana Area','Arkansas','AR','United States'),
+('Jonesboro-Paragould Area','Arkansas','AR','United States'),
+('Little Rock Metropolitan Area','Arkansas','AR','United States'),
+('Memphis Metropolitan Area','Arkansas','AR','United States'),
+('Greater Bakersfield Area','California','CA','United States'),
+('Greater Chico Area','California','CA','United States'),
+('Greater El Centro, CA Area','California','CA','United States'),
+('Greater Sacramento','California','CA','United States'),
+('Greater Salinas Area','California','CA','United States'),
+('Greater San Luis Obispo Area','California','CA','United States'),
+('Los Angeles Metropolitan Area','California','CA','United States'),
+('Metropolitan Fresno','California','CA','United States'),
+('Modesto-Merced Area','California','CA','United States'),
+('Redding-Red Bluff Area','California','CA','United States'),
+('San Diego Metropolitan Area','California','CA','United States'),
+('San Francisco Bay Area','California','CA','United States'),
+('Santa Barbara-Santa Maria Area','California','CA','United States'),
+('Visalia-Hanford Area','California','CA','United States'),
+('Denver Metropolitan Area','Colorado','CO','United States'),
+('Greater Colorado Springs Area','Colorado','CO','United States'),
+('Greater Fort Collins Area','Colorado','CO','United States'),
+('Greater Grand Junction Area','Colorado','CO','United States'),
+('Pueblo-CaÃ±on City Area','Colorado','CO','United States'),
+('Greater Boston','Connecticut','CT','United States'),
+('Greater Hartford','Connecticut','CT','United States'),
+('New York City Metropolitan Area','Connecticut','CT','United States'),
+('Greater Philadelphia','Delaware','DE','United States'),
+('Greater Salisbury Area','Delaware','DE','United States'),
+('Washington DC-Baltimore Area','District of Columbia','DC','United States'),
+('Cape Coral Metropolitan Area','Florida','FL','United States'),
+('Crestview-Fort Walton Beach-Destin Area','Florida','FL','United States'),
+('Gainesville Metropolitan Area','Florida','FL','United States'),
+('Greater Homosassa Springs Area','Florida','FL','United States'),
+('Greater Ocala Area','Florida','FL','United States'),
+('Greater Orlando','Florida','FL','United States'),
+('Greater Palm Bay-Melbourne-Titusville Area','Florida','FL','United States'),
+('Greater Panama City Area','Florida','FL','United States'),
+('Greater Sebring-Avon Park Area','Florida','FL','United States'),
+('Greater Tampa Bay Area','Florida','FL','United States'),
+('Metro Jacksonville','Florida','FL','United States'),
+('Miami-Fort Lauderdale Area','Florida','FL','United States'),
+('North Port-Sarasota Area','Florida','FL','United States'),
+('Pensacola Metropolitan Area','Florida','FL','United States'),
+('Tallahassee Metropolitan Area','Florida','FL','United States'),
+('Atlanta Metropolitan Area','Georgia','GA','United States'),
+('Greater Albany, Georgia Area','Georgia','GA','United States'),
+('Greater Augusta Area','Georgia','GA','United States'),
+('Greater Brunswick Area','Georgia','GA','United States'),
+('Greater Chattanooga','Georgia','GA','United States'),
+('Greater Columbus Area','Georgia','GA','United States'),
+('Greater Macon','Georgia','GA','United States'),
+('Greater Ponce Area','Georgia','GA','United States'),
+('Greater Savannah Area','Georgia','GA','United States'),
+('Metro Jacksonville','Georgia','GA','United States'),
+('Tallahassee Metropolitan Area','Georgia','GA','United States'),
+('Valdosta Area','Georgia','GA','United States'),
+('Honolulu Metropolitan Area','Hawaii','HI','United States'),
+('Maui','Hawaii','HI','United States'),
+('Boise Metropolitan Area','Idaho','ID','United States'),
+('Greater Idaho Falls','Idaho','ID','United States'),
+('Greater Lewiston Area','Idaho','ID','United States'),
+('Greater Logan Area','Idaho','ID','United States'),
+('Spokane-Coeur d''Alene Area','Idaho','ID','United States'),
+('Twin Falls Area','Idaho','ID','United States'),
+('Carbondale-Marion Area','Illinois','IL','United States'),
+('Greater Bloomington, Illinois Area','Illinois','IL','United States'),
+('Greater Chicago Area','Illinois','IL','United States'),
+('Greater Danville, IL Area','Illinois','IL','United States'),
+('Greater Decatur, IL Area','Illinois','IL','United States'),
+('Greater Evansville Area','Illinois','IL','United States'),
+('Greater Rockford Area','Illinois','IL','United States'),
+('Greater St. Louis','Illinois','IL','United States'),
+('Peoria Metropolitan Area','Illinois','IL','United States'),
+('Quad Cities Metropolitan Area','Illinois','IL','United States'),
+('Springfield, Illinois Metropolitan Area','Illinois','IL','United States'),
+('Urbana-Champaign Area','Illinois','IL','United States'),
+('Cincinnati Metropolitan Area','Indiana','IN','United States'),
+('Greater Bloomington Area','Indiana','IN','United States'),
+('Greater Chicago Area','Indiana','IN','United States'),
+('Greater Evansville Area','Indiana','IN','United States'),
+('Greater Fort Wayne','Indiana','IN','United States'),
+('Greater Indianapolis','Indiana','IN','United States'),
+('Greater Terre Haute Area','Indiana','IN','United States'),
+('Lafayette, Indiana Metropolitan Area','Indiana','IN','United States'),
+('Louisville Metropolitan Area','Indiana','IN','United States'),
+('South Bend-Mishawaka Region','Indiana','IN','United States'),
+('Des Moines Metropolitan Area','Iowa','IA','United States'),
+('Greater Dubuque Area','Iowa','IA','United States'),
+('Iowa City-Cedar Rapids Area','Iowa','IA','United States'),
+('Omaha Metropolitan Area','Iowa','IA','United States'),
+('Quad Cities Metropolitan Area','Iowa','IA','United States'),
+('Sioux City Region','Iowa','IA','United States'),
+('Waterloo-Cedar Falls Area','Iowa','IA','United States'),
+('Kansas City Metropolitan Area','Kansas','KS','United States'),
+('Topeka Metropolitan Area','Kansas','KS','United States'),
+('Wichita, Kansas Metropolitan Area','Kansas','KS','United States'),
+('Bowling Green Metropolitan Area','Kentucky','KY','United States'),
+('Charleston-Huntington Area','Kentucky','KY','United States'),
+('Cincinnati Metropolitan Area','Kentucky','KY','United States'),
+('Greater Clarksville Area','Kentucky','KY','United States'),
+('Greater Evansville Area','Kentucky','KY','United States'),
+('Greater Lexington Area','Kentucky','KY','United States'),
+('Greater Owensboro Area','Kentucky','KY','United States'),
+('Louisville Metropolitan Area','Kentucky','KY','United States'),
+('Baton Rouge Metropolitan Area','Louisiana','LA','United States'),
+('Greater Alexandria, Louisiana','Louisiana','LA','United States'),
+('Greater Monroe Area','Louisiana','LA','United States'),
+('Greater New Orleans Region','Louisiana','LA','United States'),
+('Houma-Thibodaux Area','Louisiana','LA','United States'),
+('Lafayette, Louisiana Metropolitan Area','Louisiana','LA','United States'),
+('Lake Charles-Jennings Area','Louisiana','LA','United States'),
+('Shreveport-Bossier City Area','Louisiana','LA','United States'),
+('Greater Bangor Area','Maine','ME','United States'),
+('Portland, Maine Metropolitan Area','Maine','ME','United States'),
+('Greater Cumberland Area','Maryland','MD','United States'),
+('Greater Philadelphia','Maryland','MD','United States'),
+('Greater Salisbury Area','Maryland','MD','United States'),
+('Washington DC-Baltimore Area','Maryland','MD','United States'),
+('Greater Boston','Massachusetts','MA','United States'),
+('Greater Pittsfield Area','Massachusetts','MA','United States'),
+('Springfield, Massachusetts Metropolitan Area','Massachusetts','MA','United States'),
+('Detroit Metropolitan Area','Michigan','MI','United States'),
+('Grand Rapids Metropolitan Area','Michigan','MI','United States'),
+('Greater Jackson, MI Area','Michigan','MI','United States'),
+('Greater Kalamazoo Area','Michigan','MI','United States'),
+('Greater Lansing','Michigan','MI','United States'),
+('Greater Saginaw-Midland-Bay City Area','Michigan','MI','United States'),
+('South Bend-Mishawaka Region','Michigan','MI','United States'),
+('Fargo-Moorhead','Minnesota','MN','United States'),
+('Greater Duluth Area','Minnesota','MN','United States'),
+('Greater Grand Forks Area','Minnesota','MN','United States'),
+('Greater Minneapolis-St. Paul Area','Minnesota','MN','United States'),
+('La Crosse-Onalaska Area','Minnesota','MN','United States'),
+('Rochester-Austin, Minnesota Area','Minnesota','MN','United States'),
+('Greater Biloxi Area','Mississippi','MS','United States'),
+('Greater Hattiesburg Area','Mississippi','MS','United States'),
+('Greater Jackson Area','Mississippi','MS','United States'),
+('Greater New Orleans Region','Mississippi','MS','United States'),
+('Memphis Metropolitan Area','Mississippi','MS','United States'),
+('Greater Columbia, Missouri Area','Missouri','MO','United States'),
+('Greater Fayetteville, AR Area','Missouri','MO','United States'),
+('Greater Jefferson City Area','Missouri','MO','United States'),
+('Greater St. Louis','Missouri','MO','United States'),
+('Joplin Metropolitan Area','Missouri','MO','United States'),
+('Kansas City Metropolitan Area','Missouri','MO','United States'),
+('Springfield-Branson, Missouri Area','Missouri','MO','United States'),
+('Greater Billings Area','Montana','MT','United States'),
+('Greater Great Falls, MT Area','Montana','MT','United States'),
+('Greater Missoula Area','Montana','MT','United States'),
+('Lincoln, Nebraska Metropolitan Area','Nebraska','NE','United States'),
+('Omaha Metropolitan Area','Nebraska','NE','United States'),
+('Sioux City Region','Nebraska','NE','United States'),
+('Greater Reno Area','Nevada','NV','United States'),
+('Las Vegas Metropolitan Area','Nevada','NV','United States'),
+('Greater Boston','New Hampshire','NH','United States'),
+('Greater Philadelphia','New Jersey','NJ','United States'),
+('New York City Metropolitan Area','New Jersey','NJ','United States'),
+('Albuquerque-Santa Fe Metropolitan Area','New Mexico','NM','United States'),
+('El Paso Metropolitan Area','New Mexico','NM','United States'),
+('Greater Farmington Area','New Mexico','NM','United States'),
+('Albany, New York Metropolitan Area','New York','NY','United States'),
+('Buffalo-Niagara Falls Area','New York','NY','United States'),
+('Elmira-Corning Area','New York','NY','United States'),
+('Greater Binghamton','New York','NY','United States'),
+('Greater Syracuse-Auburn Area','New York','NY','United States'),
+('Greater Watertown-Fort Drum Area','New York','NY','United States'),
+('New York City Metropolitan Area','New York','NY','United States'),
+('Rochester, New York Metropolitan Area','New York','NY','United States'),
+('Utica-Rome Area','New York','NY','United States'),
+('Charlotte Metro','North Carolina','NC','United States'),
+('Fayetteville, North Carolina Metropolitan Area','North Carolina','NC','United States'),
+('Greater Asheville','North Carolina','NC','United States'),
+('Greater Goldsboro Area','North Carolina','NC','United States'),
+('Greater Jacksonville, NC Area','North Carolina','NC','United States'),
+('Greater Myrtle Beach Area','North Carolina','NC','United States'),
+('Greater Wilmington Area','North Carolina','NC','United States'),
+('Greensboro--Winston-Salem--High Point Area','North Carolina','NC','United States'),
+('Greenville-Washington, North Carolina Area','North Carolina','NC','United States'),
+('Hampton Roads, Virginia Metropolitan Area','North Carolina','NC','United States'),
+('Hickory-Lenoir-Morganton-Marion Area','North Carolina','NC','United States'),
+('New Bern-Morehead City Area','North Carolina','NC','United States'),
+('Raleigh-Durham-Chapel Hill Area','North Carolina','NC','United States'),
+('Rocky Mount-Wilson Area','North Carolina','NC','United States'),
+('Fargo-Moorhead','North Dakota','ND','United States'),
+('Greater Bismarck Area','North Dakota','ND','United States'),
+('Greater Grand Forks Area','North Dakota','ND','United States'),
+('Charleston-Huntington Area','Ohio','OH','United States'),
+('Cincinnati Metropolitan Area','Ohio','OH','United States'),
+('Columbus, Ohio Metropolitan Area','Ohio','OH','United States'),
+('Dayton Metropolitan Area','Ohio','OH','United States'),
+('Greater Cleveland','Ohio','OH','United States'),
+('Greater Columbus Area','Ohio','OH','United States'),
+('Greater Mansfield Area','Ohio','OH','United States'),
+('Greater Pittsburgh Region','Ohio','OH','United States'),
+('Greater Wheeling Area','Ohio','OH','United States'),
+('Lima-Van Wert-Celina area','Ohio','OH','United States'),
+('Toledo, Ohio Metropolitan Area','Ohio','OH','United States'),
+('Youngstown-Warren area','Ohio','OH','United States'),
+('Dallas-Fort Worth Metroplex','Oklahoma','OK','United States'),
+('Greater Enid Area','Oklahoma','OK','United States'),
+('Greater Fort Smith Area','Oklahoma','OK','United States'),
+('Joplin Metropolitan Area','Oklahoma','OK','United States'),
+('Lawton Area','Oklahoma','OK','United States'),
+('Oklahoma City Metropolitan Area','Oklahoma','OK','United States'),
+('Tulsa Metropolitan Area','Oklahoma','OK','United States'),
+('Boise Metropolitan Area','Oregon','OR','United States'),
+('Greater Bend Area','Oregon','OR','United States'),
+('Greater Eugene-Springfield Area','Oregon','OR','United States'),
+('Medford-Grants Pass Area','Oregon','OR','United States'),
+('Portland, Oregon Metropolitan Area','Oregon','OR','United States'),
+('Bloomsburg Metropolitan Area','Pennsylvania','PA','United States'),
+('Erie-Meadville Area','Pennsylvania','PA','United States'),
+('Greater Harrisburg Area','Pennsylvania','PA','United States'),
+('Greater Philadelphia','Pennsylvania','PA','United States'),
+('Greater Pittsburgh Region','Pennsylvania','PA','United States'),
+('Greater Scranton Area','Pennsylvania','PA','United States'),
+('Johnstown-Somerset Area','Pennsylvania','PA','United States'),
+('Lancaster Metropolitan Area','Pennsylvania','PA','United States'),
+('New York City Metropolitan Area','Pennsylvania','PA','United States'),
+('State College-DuBois Area','Pennsylvania','PA','United States'),
+('Washington DC-Baltimore Area','Pennsylvania','PA','United States'),
+('Youngstown-Warren area','Pennsylvania','PA','United States'),
+('Greater Boston','Rhode Island','RI','United States'),
+('Charleston, South Carolina Metropolitan Area','South Carolina','SC','United States'),
+('Charleston-Huntington Area','South Carolina','SC','United States'),
+('Charlotte Metro','South Carolina','SC','United States'),
+('Columbia, South Carolina Metropolitan Area','South Carolina','SC','United States'),
+('Greater Augusta Area','South Carolina','SC','United States'),
+('Greater Florence, South Carolina Area','South Carolina','SC','United States'),
+('Greater Myrtle Beach Area','South Carolina','SC','United States'),
+('Greenville-Spartanburg-Anderson, South Carolina Area','South Carolina','SC','United States'),
+('Hilton Head Island, South Carolina Area','South Carolina','SC','United States'),
+('Greater Sioux Falls Area','South Dakota','SD','United States'),
+('Sioux City Region','South Dakota','SD','United States'),
+('Greater Chattanooga','Tennessee','TN','United States'),
+('Greater Clarksville Area','Tennessee','TN','United States'),
+('Johnson City-Kingsport-Bristol Area','Tennessee','TN','United States'),
+('Knoxville Metropolitan Area','Tennessee','TN','United States'),
+('Memphis Metropolitan Area','Tennessee','TN','United States'),
+('Nashville Metropolitan Area','Tennessee','TN','United States'),
+('Austin, Texas Metropolitan Area','Texas','TX','United States'),
+('Beaumont-Port Arthur Area','Texas','TX','United States'),
+('Brownsville Metropolitan Area','Texas','TX','United States'),
+('College Station-Bryan Area','Texas','TX','United States'),
+('Dallas-Fort Worth Metroplex','Texas','TX','United States'),
+('El Paso Metropolitan Area','Texas','TX','United States'),
+('Greater Abilene Area','Texas','TX','United States'),
+('Greater Amarillo Area','Texas','TX','United States'),
+('Greater Corpus Christi Area','Texas','TX','United States'),
+('Greater Houston','Texas','TX','United States'),
+('Greater Laredo Area','Texas','TX','United States'),
+('Greater McAllen Area','Texas','TX','United States'),
+('Greater Texarkana Area','Texas','TX','United States'),
+('Greater Wichita Falls, Texas Area','Texas','TX','United States'),
+('Killeen-Temple Area','Texas','TX','United States'),
+('Longview-Marshall Area','Texas','TX','United States'),
+('Lubbock-Levelland Area','Texas','TX','United States'),
+('Midland-Odessa Area','Texas','TX','United States'),
+('San Angelo Area','Texas','TX','United States'),
+('San Antonio, Texas Metropolitan Area','Texas','TX','United States'),
+('Shreveport-Bossier City Area','Texas','TX','United States'),
+('Tyler-Jacksonville Area','Texas','TX','United States'),
+('Waco Area','Texas','TX','United States'),
+('Greater Logan Area','Utah','UT','United States'),
+('Greater St. George Area','Utah','UT','United States'),
+('Salt Lake City Metropolitan Area','Utah','UT','United States'),
+('Greater Burlington Area','Vermont','VT','United States'),
+('Blacksburg-Christiansburg-Radford Area','Virginia','VA','United States'),
+('Greater Charlottesville Area','Virginia','VA','United States'),
+('Greater Lynchburg Area','Virginia','VA','United States'),
+('Greater Richmond Region','Virginia','VA','United States'),
+('Greater Roanoke Area','Virginia','VA','United States'),
+('Hampton Roads, Virginia Metropolitan Area','Virginia','VA','United States'),
+('Harrisonburg-Staunton-Waynesboro Area','Virginia','VA','United States'),
+('Johnson City-Kingsport-Bristol Area','Virginia','VA','United States'),
+('Washington DC-Baltimore Area','Virginia','VA','United States'),
+('Bellingham Metropolitan Area','Washington','WA','United States'),
+('Greater Kennewick Area','Washington','WA','United States'),
+('Greater Lewiston Area','Washington','WA','United States'),
+('Greater Seattle Area','Washington','WA','United States'),
+('Greater Wenatchee Area','Washington','WA','United States'),
+('Greater Yakima Area','Washington','WA','United States'),
+('Portland, Oregon Metropolitan Area','Washington','WA','United States'),
+('Spokane-Coeur d''Alene Area','Washington','WA','United States'),
+('Walla Walla Area','Washington','WA','United States'),
+('Charleston-Huntington Area','West Virginia','WV','United States'),
+('Greater Cumberland Area','West Virginia','WV','United States'),
+('Greater Morgantown Area','West Virginia','WV','United States'),
+('Greater Pittsburgh Region','West Virginia','WV','United States'),
+('Greater Wheeling Area','West Virginia','WV','United States'),
+('Washington DC-Baltimore Area','West Virginia','WV','United States'),
+('Appleton-Oshkosh-Neenah Area','Wisconsin','WI','United States'),
+('Eau Claire-Menomonie Area','Wisconsin','WI','United States'),
+('Greater Chicago Area','Wisconsin','WI','United States'),
+('Greater Duluth Area','Wisconsin','WI','United States'),
+('Greater Fond du Lac Area','Wisconsin','WI','United States'),
+('Greater Madison Area','Wisconsin','WI','United States'),
+('Greater Milwaukee','Wisconsin','WI','United States'),
+('Greater Minneapolis-St. Paul Area','Wisconsin','WI','United States'),
+('Green Bay, Wisconsin Metropolitan Area','Wisconsin','WI','United States'),
+('La Crosse-Onalaska Area','Wisconsin','WI','United States'),
+('Sheboygan Metropolitan Area','Wisconsin','WI','United States'),
+('Wausau-Stevens Point Area','Wisconsin','WI','United States'),
+('Greater Casper Area','Wyoming','WY','United States'),
+('Greater Cheyenne Area','Wyoming','WY','United States'),
+('Pueblo-Cañon City Area','Colorado','CO','United States'),
+('Greater Brunswick Area','Maryland','MD','United States'),
+('San Juan-Carolina Area','Puerto Rico','PR','United States')
+;
+
+
+-------------------------------------
+--- Create Performance Table ---
+-------------------------------------
+drop table if exists u_{owner}.temp_performance_geo_table_{run_id};
+create table u_{owner}.temp_performance_geo_table_{run_id} as
+select
+      A.datepartition
+     ,header.memberid as member_id 
+     ,cast(regexp_replace(A.campaigngroupurn,'urn:li:sponsoredCampaignGroup:','') as int) as campaigngroupid
+	 ,name as campaign_group_name
+     ,cast(regexp_replace(A.campaignurn,'urn:li:sponsoredCampaign:','') as int) as campaignid
+     ,B.campaign_name
+     ,cast(regexp_replace(A.creativeurn,'urn:li:sponsoredCreative:','') as int) as creativeid
+     ,campaigntype
+     ,case cast(B.campaign_type_info.id as varchar)
+        when '5' then 'Text Ad'
+        when '14' then 'Sponsored Content'
+        when '15' then 'Message Ad'
+        when '22' then 'Dynamic Ad'
+        else cast(B.campaign_type_info.id as varchar)
+      end as campaign_type
+     ,B.cost_type as buy_type     
+     ,case when impressions>0 then 1 else 0 end as reach
+     ,sum(costinlocalcurrency) as cost_local
+     ,sum(costinusd) as cost_usd
+     ,sum(impressions) as impressions
+     ,sum(clicks) as clicks
+     ,sum(totalengagements) as totalengagements
+     ,sum(otherengagements) as otherengagements
+     ,sum(oneclickleads) as oneclickleads
+     ,sum(oneclickleadformopens) as oneclickleadformopens
+     ,sum(opens) as opens
+     ,sum(sends) as sends
+     ,sum(videoviews) as videoviews
+     ,sum(videocompletions) as videocompletions
+from u_adsreporting.engagement_tracking_metrics                                      A
+     inner join foundation_lms_mp.dim_sas_campaign                                   B on cast(regexp_replace(A.campaignurn,'urn:li:sponsoredCampaign:','') as int) = B.campaign_id 
+     inner join prod_sas.campaign_groups                                             C on cast(regexp_replace(A.campaigngroupurn,'urn:li:sponsoredCampaignGroup:','') as int) = c.campaign_group_id
+
+-- where CAST(SUBSTR(datepartition,1,10) AS DATE) between DATE_ADD('month', -1, DATE(DATE_FORMAT(current_date,'%Y-%m-01'))) -- last_month_first_day
+--     	 									   and DATE_ADD('day', -1, DATE(DATE_FORMAT(current_date,'%Y-%m-01'))) -- last_month_last_day
+
+--      WHERE CAST(SUBSTR(datepartition,1,10) AS DATE) 
+--       BETWEEN DATE '2025-07-01' AND DATE '2025-10-31'
+--     and cast(regexp_replace(A.accounturn,'urn:li:sponsoredAccount:','') as int) = 500061916 -- https://www.linkedin.com/campaignmanager/accounts/500061916/campaigns
+-- group by 1,2,3,4,5,6,7,8,9,10,11
+-- ;
+
+     WHERE CAST(SUBSTR(datepartition,1,10) AS DATE) 
+      BETWEEN DATE '2025-07-01' AND DATE '2025-10-31'
+    and cast(regexp_replace(A.accounturn,'urn:li:sponsoredAccount:','') as int) = 506166451 -- https://www.linkedin.com/campaignmanager/accounts/500061916/campaigns
+group by 1,2,3,4,5,6,7,8,9,10,11
+;
+-- Check
+-- select sum(costinusd), sum(costinlocalcurrency) from u_adsreporting.engagement_tracking_metrics
+-- where CAST(SUBSTR(datepartition,1,10) AS DATE) between DATE_ADD('month', -1, DATE(DATE_FORMAT(current_date,'%Y-%m-01'))) -- last_month_first_day
+--     	 									   and DATE_ADD('day', -1, DATE(DATE_FORMAT(current_date,'%Y-%m-01'))) -- last_month_last_day
+-- 	  and cast(regexp_replace(accounturn,'urn:li:sponsoredAccount:','') as int) in (500061916)
+-- ; -- should match the above table and close to CMT spend
+
+
+-- Region Query
+
+drop table if exists u_insshare.temp_performance_region_country_state_{run_id};
+create table u_insshare.temp_performance_region_country_state_{run_id} as
+with data as (
+  select
+      CAST(SUBSTR(b.datepartition,1,10) AS DATE) as dt
+    , case
+        when geo.countryisocode in ('US','VI','PR','GR','MP','AS') then geo.countryisocode
+        when c.state_abrv = split_part(geo.admindivision1isocode,'-',2) then 'US'
+        else 'Unmapped'
+      end as country_name
+    , case
+        when geo.countryisocode in ('VI','PR','GR','MP','AS') then geo.countryisocode
+        else coalesce(c.state,'Unmapped')
+      end as state_name
+    , campaignid
+    , sum(cost_usd) as cost_usd
+  from foundation_core_entity_mp.dim_member_all a
+  inner join u_{owner}.temp_performance_geo_table_{run_id} b
+    on a.member_id = b.member_id
+  left join stz_derived_mp.stz_derived_taxonomy_geo_entities geo
+    on a.admin_division_2_id = geo.id
+   and geo.entitytype in ('ADMIN_DIVISION_2')
+  left join (
+    select distinct state, state_abrv, country
+    from u_{owner}.region_map_table_{run_id}
+  ) c
+    on split_part(geo.admindivision1isocode,'-',2) = c.state_abrv
+  where 1=1
+  group by 1,2,3,4
+)
+select
+    dt
+  , case
+      when country_name = 'US' then 'United States'
+      when country_name = 'VI' then 'US Virgin Island'
+      when country_name = 'PR' then 'Puerto Rico'
+      when country_name = 'GR' then 'Guam'
+      when country_name = 'MP' then 'Northern Mariana Islands'
+      when country_name = 'AS' then 'American Samoa'
+      else country_name
+    end as country_name
+  , case
+      when state_name = 'VI' then 'US Virgin Island'
+      when state_name = 'PR' then 'Puerto Rico'
+      when state_name = 'GR' then 'Guam'
+      when state_name = 'MP' then 'Northern Mariana Islands'
+      when state_name = 'AS' then 'American Samoa'
+      else state_name
+    end as state_name
+  , campaignid
+  , cost_usd
+from data
+order by 1,2,3;
+
+
+-- DMA Query
+drop table if exists u_{owner}.temp_performance_region_dma_{run_id};
+create table u_{owner}.temp_performance_region_dma_{run_id} as
+SELECT 
+	    CAST(SUBSTR(b.datepartition,1,10) AS DATE) as dt
+       ,campaignid	   
+	   ,campaign_type
+	   ,campaign_name
+	   ,campaign_group_name
+	   ,buy_type
+-- 	   ,case when country.country_name <> 'United States' then 'Unmapped' else 'United States' end as country_name 
+-- 	   ,coalesce(country.country_name,'Unmapped') as country_name 
+	   ,coalesce(c.country, 'Unmapped') as country_name
+       ,case when coalesce(a.country.country_name,'Unmapped') <> 'United States' then 'Unmapped' else coalesce(market_area,'Unmapped') end as region_name
+       ,sum(cost_local) as cost_local
+       ,sum(cost_usd) as cost_usd
+       ,sum(impressions) as impressions
+       ,sum(reach) as reach
+       ,sum(clicks) as clicks
+       ,sum(totalengagements) as totalengagements
+       ,sum(otherengagements) as otherengagements
+       ,sum(oneclickleads) as oneclickleads
+       ,sum(oneclickleadformopens) as oneclickleadformopens
+       ,sum(opens) as opens
+       ,sum(sends) as sends
+       ,sum(videoviews) as videoviews
+       ,sum(videocompletions) as videocompletions
+  FROM foundation_core_entity_mp.dim_member_all a
+       INNER JOIN u_{owner}.temp_performance_geo_table_{run_id} b ON a.member_id = b.member_id
+	   LEFT JOIN (select distinct country, region from u_{owner}.region_map_table_{run_id}) c ON a.market_area = c.region
+-- 	   LEFT JOIN stz_derived_mp.stz_derived_taxonomy_geo_entities geo ON a.admin_division_2_id = geo.id AND geo.entitytype in ('ADMIN_DIVISION_2')
+-- 	   LEFT JOIN (select distinct state, state_abrv, country from u_{owner}.region_map_table_{run_id}) c on split_part(geo.admindivision1isocode,'-',2) = c.state_abrv
+  WHERE 1=1 
+  GROUP BY 1,2,3,4,5,6,7,8
+;
+
+
+-- DMA Query
+drop table if exists u_{owner}.temp_performance_dma_final_{run_id};
+create table u_{owner}.temp_performance_dma_final_{run_id} as
+with dma_tbl as 
+		(select
+		   dt
+		  ,campaign_type
+		  ,case when lower(substring(campaign_name,1,2)) = 'bc' then 'Business'
+				when lower(substring(campaign_name,1,2)) = 'ge' or lower(campaign_name) like '%owned_earned%' or lower(campaign_name) like '%o&e%' then 'General'
+				when lower(substring(campaign_name,1,2)) = 'hp' then 'Health'
+				when lower(substring(campaign_name,1,2)) = 'it' then 'IT'
+				when lower(substring(campaign_name,1,2)) = 'tc' then 'Teacher'
+				when lower(substring(campaign_name,1,2)) = 'ol' then 'Business' -- Only 1 Other 
+				else 'Other'
+			end as college
+		  ,'N/A' as brand
+		--   ,coalesce(country.country_name, 'Unmapped') as country_name
+		  ,country_name
+		  ,region_name
+		  ,'LinkedIn' as site_partner
+		  ,campaign_name
+		  ,'N/A' as device
+		  ,buy_type
+		  ,'LinkedIn' as platform
+		  ,case when lower(campaign_name) like '%pros%' then 'Prospecting'
+				when lower(campaign_group_name) like '%owned/earned%' then 'Owned'
+				when lower(campaign_group_name) like '%mid-funnel%' then 'Prospecting'
+				when campaign_name in
+				 ('BCMid - NT - LGF - FY22 - Functions',  
+				  'BCMid - NT - LGF - FY23 - Display - Functions',  
+				  'GEMid - NT - LGF - FY22 - Functions',  
+				  'GEMid - NT - LGF - FY23 - Display - Edu Policy Newsletter',  
+				  'GEMid - NT - LGF - FY23 - Display - Functions & Recent Grads',  
+				  'GEMid - NT - Visits - FY22 - Functions',  
+				  'GEN - NT - Pro -  DA - Continuing Education',  
+				  'GEN - NT - Pro - Convo - Bachelors',  
+				  'GEN - NT - Pro - Convo - Broadfunc',  
+				  'GEN - NT - Pro - Convo - Continuing Education',  
+				  'GEN - NT - Pro - Convo - Masters',  
+				  'GEN - NT - Pro - Convo - Unemployed',  
+				  'GEN - NT - Pro - DA - Admin',  
+				  'GEN - NT - Pro - DA - Operationsfunc',  
+				  'GEN - NT - Pro - DA - Seniority',  
+				  'GEN - NT - Pro - TA - Seniority',  
+				  'GETop - NT - Awareness -  FY22 - Industry - Static',  
+				  'HPMid - NT - LGF - FY22 - Function & Skills',  
+				  'IT - NT - PRO - Bachelors - General – TA - V2',  
+				  'IT - NT - PRO - Entry IT Job Titles Masters – TA - V2',  
+				  'IT - NT - PRO - IT Gen FoS - TA - V2',  
+				  'ITMid - NT - FY23 - AWR - Display - IT Quiz',  
+				  'ITMid - NT - FY23 - ENG - DocAd - IT eBook',  
+				  'ITMid - NT - FY23 - LGF - Display - Predictive',  
+				  'ITMid - NT - FY23 - TRF - Display - IT eBook',  
+				  'ITMid - NT - LGF - FY22 - Function & Skills',  
+				  'ITMid - NT - LGF - FY23 - Display - Function & Industry',  
+				  'ITMid - NT - LGF - FY23 - Job Titles',  
+				  'ITMid - NT - Visits - FY22 - Functions & Skills') then 'Prospecting'
+				else 'Retargeting'
+			end as target_type
+		  ,case when lower(campaign_group_name) like '%owned_earned%' or lower(campaign_group_name) like 'boost%' or campaign_group_name = 'Brand Campaign Group' then 'Upper Funnel'
+				when lower(substring(campaign_group_name,1,2)) in ('tc','ge','hp','bc') or lower(campaign_group_name) like 'default%' then 'Lower Funnel'
+				when lower(substring(campaign_group_name,1,3)) = 'mid' then 'Mid Funnel'
+		   end as funnel_stage      
+		  ,cost_usd
+		  ,impressions
+		  ,clicks
+		from u_{owner}.temp_performance_region_dma_{run_id}
+	)
+select
+   dt as date
+  ,campaign_type
+  ,college
+  ,brand
+  ,region_name as dma
+  ,country_name
+  ,site_partner
+  ,campaign_name as campaign
+  ,device
+  ,buy_type
+  ,platform
+  ,target_type
+  ,funnel_stage
+  ,sum(cost_usd) as spend  
+  ,sum(impressions) as impressions
+  ,sum(clicks) as clicks
+from dma_tbl
+where funnel_stage is not null
+group by 1,2,3,4,5,6,7,8,9,10,11,12,13
+having sum(cost_usd) > 0
+;
+
+
+---- DMA Output ----
+drop table if exists u_{owner}.temp_performance_dma_output_{run_id};
+create table u_{owner}.temp_performance_dma_output_{run_id} as
+select 
+   date
+  ,campaign_type
+  ,college
+  ,brand
+  ,dma
+  ,country_name
+  ,site_partner
+  ,campaign
+  ,device
+  ,buy_type
+  ,platform
+  ,target_type
+  ,funnel_stage
+  ,spend  
+--   ,sum(impressions) as impressions
+  ,case when impressions < 10 then 'below reporting threshold' else cast(impressions as varchar) end as impressions
+--   ,sum(clicks) as clicks
+  ,case when clicks < 3 then 'below reporting threshold' else cast(clicks as varchar) end as clicks
+from u_{owner}.temp_performance_dma_final_{run_id}
+order by 1 asc;
+
+---- State Output ----
+
+drop table if exists u_{owner}.temp_performance_state_output_{run_id};
+create table u_{owner}.temp_performance_state_output_{run_id} as
+select
+    dt as date
+  , campaignid
+  , country_name
+  , state_name
+  , cost_usd
+from u_insshare.temp_performance_region_country_state_{run_id}
+where cost_usd > 0
+order by 1,3,4,2;
+
+
+select * from u_{owner}.temp_performance_state_output_{run_id};
+
+select * from u_{owner}.temp_performance_dma_output_{run_id};
