@@ -1,0 +1,383 @@
+SET SESSION li_authorization_user = 'insshare';
+
+set session viewshift_enabled = true;
+--check activated
+show session like 'viewshift_enabled';
+
+drop table if exists u_insshare.${topic_name_or_identifier}_industrymaster;
+create table u_insshare.${topic_name_or_identifier}_industrymaster as
+SELECT
+    com.company_id
+  , com.canonical_name as company_name
+  , ind.industry_id
+  , ind.industry_name
+FROM foundation_core_entity_mp.dim_company com
+left join u_gsoins.std_industry_mapping_v2  ind 
+  on com.industry_id = ind.industry_id
+;
+
+--Step 1.2: Create table frame for the topic keywords
+drop table if exists u_insshare.${topic_name_or_identifier}_topicmaster;
+create table u_insshare.${topic_name_or_identifier}_topicmaster (
+      content_language varchar(255)
+    , content_type varchar(255) -- energy
+    , content_keyword varchar(255)
+)
+;
+
+ --Feel free to add/remove keywords or hashtags as you see fit
+insert into u_insshare.${topic_name_or_identifier}_topicmaster values
+    ('english','keyword','Renewable Energy')
+  , ('english','keyword','Solar Energy')
+  , ('english','keyword','Sustainable Energy')
+  , ('english','keyword','Sustainability')
+  , ('english','keyword','Electric Vehicles')
+  , ('english','keyword','Decarbonization')
+  , ('english','keyword','Carbon Footprint')
+  , ('english','keyword','Wind Energy')
+  , ('english','keyword','Clean Energy')
+  , ('english','keyword','Biofuels')
+  , ('english','keyword','Green Technology')
+  , ('english','keyword','Wave energy')
+  , ('english','keyword','clean power')
+  , ('english','keyword','energy management')
+  , ('english','keyword','nuclear energy')
+  , ('english','keyword','climate change')
+  , ('english','keyword','environmental sustainability')
+  , ('english','keyword','activism')
+  , ('english','keyword','natural world')
+  , ('english','keyword','natural resources')
+;
+
+
+--Step 1.3: Create a table with all updates during the time period (not specific to formula 1)
+drop table if exists u_insshare.${topic_name_or_identifier}_all_updates;
+create table u_insshare.${topic_name_or_identifier}_all_updates as
+    select
+      upd.company_id
+    , ind.company_name
+    , ind.industry_id
+    , ind.industry_name
+    , update_id
+    , created_date
+    , thread_urn
+    , domain_entity_urn
+    , is_sponsored
+    , regexp_replace(
+        lower(
+        coalesce(upd.update_text, '')
+        ||' '||
+        coalesce(upd.article.title, '')
+        ||' '||
+        coalesce(upd.article.description, '')
+        )
+       , '[^\p{Alnum}\s:#-'']+',' ' -- Remove everything not (^) alphanumeric (\p{Alnum}), whitespace (\s), a hashtag (#), a dash (-) or an apostrophe (''), and replace it with a white space
+        ) as text_string
+FROM foundation_lms_mp.dim_nus_company_updates upd
+join u_insshare.${topic_name_or_identifier}_industrymaster ind 
+    on upd.company_id = ind.company_id
+where 1=1
+    and created_date between '${long_start_date}' and '${long_end_date}'
+    and upd.verb_type IN ('linkedin:post','linkedin:share') --this ensures we only include posts 
+;
+
+
+--Step 1.4: Create a table with all Fomula 1 keywords including company data, industry data and post information
+drop table if exists u_insshare.${topic_name_or_identifier}_ind_upd;
+create table u_insshare.${topic_name_or_identifier}_ind_upd as
+select
+      company_name
+    , company_id
+    , industry_name
+    , industry_id
+    , update_id
+    , created_date
+    , content_keyword
+    , is_sponsored
+    , text_string
+    , thread_urn
+    , content_language
+from u_insshare.${topic_name_or_identifier}_all_updates updates
+         CROSS JOIN u_insshare.${topic_name_or_identifier}_topicmaster as topic_key
+where 1=1
+  and REGEXP_LIKE(lower(text_string) , CONCAT('(^| )', lower(topic_key.content_keyword), '( |$)'))
+;
+
+--Step 1.5: Create a table with unique update_id and created_date 
+--EXPLANATION: the u_insshare.${topic_name_or_identifier}_ind_upd table can create duplications due to the content_keyword field (one post can have multiple keywords)
+--This means that running engagement code directly on u_insshare.${topic_name_or_identifier}_ind_upd can duplicate engagement
+--Use u_insshare.${topic_name_or_identifier}_filtered_update_ids if you need to see engagement uplifts or anything where unique posts are important.
+--Use u_insshare.${topic_name_or_identifier}_ind_upd if you need to look at keyword performance, language or anything else
+drop table if exists u_insshare.${topic_name_or_identifier}_filtered_update_ids;
+create table u_insshare.${topic_name_or_identifier}_filtered_update_ids as
+SELECT distinct 
+        industry_id
+      , industry_name
+      , company_id
+      , update_id
+      , created_date
+FROM u_insshare.${topic_name_or_identifier}_ind_upd
+;
+
+drop table if exists u_insshare.countries_array_${topic_name_or_identifier};
+create table u_insshare.countries_array_${topic_name_or_identifier} (region varchar,country_codes array(varchar));
+insert into u_insshare.countries_array_${topic_name_or_identifier}
+
+values
+('NAMER',Array['us','ca'])
+,('LATAM',Array['ni','bo','ky','vg','cu','pa','ec','tc','pr','gt','sr','vc','sh','ms','dm','sv','bs','ve','co','ar','gp','ht','gs','gd','hn','lc','pe','bb','jm','bz','gf','do','mq','cr','ai','uy','py','br','bm','kn','vi','fk','mx','tt','aw','gy','cl','ag'])
+,('APAC',Array['th','bt','tl','kh','in','bd','vu','mo','wf','sg','pg','au','sb','id','jp','np','kp','to','mh','pw','ph','pf','mp','fj','fm','ck','mm','nc','tw','ws','vn','cc','nu','mv','pk','nr','la','kr','nf','tv','hk','my','pn','nz','cx','lk','cn','ki','mn','gu','tk','as','bn'])
+,('EMEA',Array['lu','sy','bj','by','st','se','ly','ug','ma','rw','nl','fo','pl','sc','ro','ee','im','et','ua','cm','ss','li','mz','bh','bi','lv','ie','hr','zm','gg','za','ls','ke','de','va','km','dj','no','dz','bf','ne','sh','es','md','mr','sa','be','ad','dk','er','sn','si','ga','lb','ng','qa','cy','cf','om','gw','sm','na','me','ao','fr','gh','gq','ir','ru','ml','gi','sz','ae','gr','eg','tn','so','is','cz','gn','sd','mk','il','ch','hu','kw','cg','gm','tr','sl','mw','ba','zw','sk','cd','tg','gb','iq','al','lr','it','bw','ye','bg','je','lt','tz','mc','at','fi','ci','mg','jo','pt','cv','td','yt','rs'])
+,('MENA',Array['ae', 'il', 'om', 'ps', 'iq', 'ye', 'sy', 'cy', 'tr', 'lb', 'sa', 'ir', 'eg', 'kw', 'jo', 'bh', 'qa'])
+,('ANZ',Array['au','nz'])
+,('UK',Array['gb'])
+,('FRANCE',Array['fr'])
+,('DACH',Array['de','at','ch'])
+,('SEA',Array['sg','my','kr','ph','bn','th','vn','la'])
+,('INDIA',Array['in'])
+,('JAPAN',Array['jp'])
+,('HK',Array['hk'])
+,('EUROPE',Array['gb','fr','es','pt','it','de','at','ch','se','no','fi','dk','be','hr','cz','ee','gr','is','hu','ie','lu','nl','mc','pl','ro'])
+;
+
+
+-- Step 1.7. Countries with regions (unnested) - allows us to filter to specific regions later in the code
+drop table if exists u_insshare.countries_${topic_name_or_identifier};
+create table u_insshare.countries_${topic_name_or_identifier} as
+select
+      region
+    , c.country_code
+    , ctr.country_id
+from u_insshare.countries_array_${topic_name_or_identifier}
+cross join unnest(country_codes) as c(country_code)
+join stz_derived_mp.bing_geo_country ctr
+  on c.country_code = ctr.country_code
+;
+
+
+-- Step 1.8: Create audience table
+-- Change inputs as needed, use this code to create a more specific audience table: https://github.com/linkedin-sandbox/insights-snippets-of-truth/blob/master/Full_Scripts/LMS_Standard_Analyses/Audience/Custom_Audience_Analyzer.sql
+drop table if exists u_insshare.${topic_name_or_identifier}_${region_name}_audience_members;
+create table u_insshare.${topic_name_or_identifier}_${region_name}_audience_members as
+select distinct 
+      member_id
+from u_gsoins.lms_core_audience_array_union
+where 1=1
+and country_code in (select country_code from u_insshare.countries_${topic_name_or_identifier} where region in ('${region_name}')) -- comment out if running for global audience
+;
+
+--------------------------------------------------------ENGAGEMENT ANALYSIS START-------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------
+
+
+--Step 2.1: Create weekly engagement table - this sets us up for the output in the slide
+drop table if exists u_insshare.${topic_name_or_identifier}_weekly_engagements;
+create table u_insshare.${topic_name_or_identifier}_weekly_engagements as 
+select 
+      member_id
+    , date_trunc('week', date(substr(engs.datepartition,1,10))) as week
+    , sum(clicks_count+likes_count+comments_count+shares_count) as engagements
+from  foundation_lms_mp.agg_daily_company_updates_actions as engs
+inner join u_insshare.${topic_name_or_identifier}_filtered_update_ids upd --note we are using the unique update_id table
+  on engs.update_id = upd.update_id
+--inner join u_insshare.${topic_name_or_identifier}_${region_name}_audience_members aud 
+--  on aud.member_id = engs.member_id 
+where 1=1 
+      and upd.created_date between '${long_start_date}' and '${long_end_date}'
+      and engs.datepartition between '${long_start_date}' and '${long_end_date}'
+group by 1,2
+;
+
+
+------=========------ THIS IS YOUR OUTPUT FOR THE SLIDE ------=========--------====
+
+select distinct 
+		  week
+		, 1.0 * engagements / first_value(engagements) over (order by week) as indexed_engagements
+from u_insshare.${topic_name_or_identifier}_weekly_engagements
+order by 1 asc
+;
+
+------=========------------=========------------=========------------=========------
+------------------------------------------------------------------------------
+-- OUTPUT 3
+-- Run custom AA+: Demographics of members engaging with Energy content
+------------------------------------------------------------------------------
+drop table if exists u_insshare.jascott_member_audience_energy_namer;
+create table u_insshare.jascott_member_audience_energy_namer as
+select
+distinct member_id
+FROM u_insshare.${topic_name_or_identifier}_weekly_engagements
+  where 1=1
+--      and datepartition >= '${start_date|help:ex: '2022-10-01'}-00'
+--      and datepartition <= '${end_date|help:ex: '2022-12-31'}-00'
+	 --and is_member = 'True' --Cannot run demos for guests since we don't have their member_id
+	 
+;
+
+-- top companies
+with t_company as (select
+    companies
+    ,aa.member_id
+    from
+    u_gsoins.lms_core_audience_array_union aa
+    inner join u_insshare.${topic_name_or_identifier}_weekly_engagements t
+    on aa.member_id = t.member_id
+    group by 1,2
+)
+select 
+'Companies' as demo_split
+,canonical_name
+,n_viewer
+from
+	(select
+	company
+	,count(distinct member_id) as n_viewer
+	from
+	t_company
+	cross join unnest(companies) as t(company)
+	group by 1) a
+left join
+foundation_core_entity_mp.dim_company b
+on a.company = b.company_id
+where canonical_name is not null
+and n_viewer >= 10
+order by 3 desc
+;
+
+-- top 15 Functions
+select
+'Functions' as demo_split
+  ,function_name
+,count(distinct aa.member_id) as n_viewer
+from  u_gsoins.lms_app_audienceanalyzer_array  aa
+inner join u_insshare.${topic_name_or_identifier}_weekly_engagements t
+	on aa.member_id = t.member_id
+cross join unnest(aa.functions) as f (function_sk)
+left join u_gsoins.dim_function fctn on function_sk=fctn.function_id
+where aa.member_id in (select member_id from u_insshare.jascott_member_audience_energy_namer)
+and function_name != 'Unknown'
+group by 1,2
+having count(distinct aa.member_id) >= 10
+order by 3 desc
+;
+
+
+-- top 15 Seniorities
+select
+  'Seniority' as demo_split
+  ,seniority_name
+,count(distinct aa.member_id) as n_viewer
+from  u_gsoins.lms_app_audienceanalyzer_array  aa
+inner join u_insshare.${topic_name_or_identifier}_weekly_engagements t
+	on aa.member_id = t.member_id
+cross join unnest(seniorities) as flat (seniority_sk)
+left join u_gsoins.dim_seniority snry on flat.seniority_sk=snry.seniority_id
+where aa.member_id in (select member_id from u_insshare.jascott_member_audience_energy_namer)
+and seniority_name != 'Unknown'
+group by 1,2
+having count(distinct aa.member_id) >= 10
+order by 3 desc
+;
+
+
+-- top 15 Industry
+select
+ 'Industry' as demo_split
+  ,industry_name
+,count(distinct aa.member_id) as n_viewer
+from  u_gsoins.lms_app_audienceanalyzer_array  aa
+inner join u_insshare.${topic_name_or_identifier}_weekly_engagements t
+	on aa.member_id = t.member_id
+cross join unnest(industries) as flat (industry_sk)
+left join foundation_core_entity_mp.dim_industry_std ind on flat.industry_sk=ind.industry_id
+where ind.locale='en_US' --language of industry names
+and  aa.member_id in (select member_id from u_insshare.jascott_member_audience_energy_namer)
+group by 1,2
+having count(distinct aa.member_id) >= 10
+order by 3 desc
+;
+
+-- company_size distribution
+select
+  'Company Size' as demo_split
+  ,company_size
+,count(distinct aa.member_id) as n_viewer
+from  u_gsoins.lms_app_audienceanalyzer_array  aa
+inner join u_insshare.${topic_name_or_identifier}_weekly_engagements t
+	on aa.member_id = t.member_id
+cross join unnest(co_sizes) as flat (company_size_sk)
+left join u_gsoins.dim_company_size cmpsz on flat.company_size_sk = cmpsz.company_size_id
+where  aa.member_id in (select member_id from u_insshare.jascott_member_audience_energy_namer)
+group by 1,2
+having count(distinct aa.member_id) >= 10
+order by 3 desc
+;
+
+----------FOLLOWERS-----------------
+
+
+--Step 1: Filter companies by industry
+WITH IndustryFilteredCompanies AS (
+    SELECT 
+        c.company_id
+    FROM foundation_core_entity_mp.dim_company c
+    JOIN u_gsoins.std_industry_mapping_v2 i ON c.industry_id = i.industry_id
+    WHERE i.industry_name IN (
+		'Oil and Gas'
+		,'Utilities'
+		,'Renewable Energy Semiconductor Manufacturing'
+		,'Renewables & Environment'
+		
+--         'Renewable Energy Equipment Manufacturing',
+--         'Services for Renewable Energy',
+--         'Renewable Energy Semiconductor Manufacturing',
+--         'Renewable Energy Power Generation',
+--         'Oil and Gas',
+--         'Hydroelectric Power Generation',
+--         'Climate Technology Product Manufacturing',
+--         'Oil and Coal Product Manufacturing',
+--         'Oil Extraction',
+--         'Oil, Gas, and Mining',
+--         'Mining',
+--         'Renewables & Environment',
+--         'Solar Electric Power Generation',
+--         'Waste Collection',
+--         'Waste Treatment and Disposal',
+--         'Water Supply and Irrigation Systems',
+--         'Water, Waste, Steam, and Air Conditioning Services',
+--         'Wholesale Recyclable Materials',
+--         'Wind Electric Power Generation'
+    )
+),
+
+-- Step 2: Aggregate follower counts per month
+TotalFollowerCounts AS (
+    SELECT
+        f.month_sk,
+        COUNT(DISTINCT f.member_id) AS monthly_followers
+    FROM IndustryFilteredCompanies c
+    JOIN u_metrics.company_follower___company_follower_metrics f ON c.company_id = f.company_id
+    WHERE f.month_sk BETWEEN '202308' AND '202410'  -- From Feb 2023 to Aug 2024
+    GROUP BY f.month_sk
+),
+
+-- Step 3: Calculate the monthly growth
+MonthlyFollowerGrowth AS (
+    SELECT
+        month_sk,
+        monthly_followers,
+        COALESCE(
+            monthly_followers - LAG(monthly_followers) OVER (ORDER BY month_sk), 
+            monthly_followers
+        ) AS follower_growth
+    FROM TotalFollowerCounts
+)
+
+-- Final Step: Select the results
+SELECT
+    month_sk AS month,
+    monthly_followers,
+    follower_growth
+FROM MonthlyFollowerGrowth
+ORDER BY month;
